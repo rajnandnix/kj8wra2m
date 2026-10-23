@@ -1,0 +1,80 @@
+/* Design tokens. Series colours are the validated categorical slots 1-2; dark values are
+   stepped for the dark surface, not an automatic flip. */
+:root {
+  color-scheme: light;
+  --surface-page: #f4f3f0;
+  --surface-1: #fcfcfb;
+  --surface-2: #f0efec;
+  --border: #dedcd6;
+  --grid: #e7e5df;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #77756f;
+  --series-1: #2a78d6; /* forecast */
+  --series-2: #eb6834; /* actual outturn */
+  --series-3: #1baf7a;
+  --band: rgba(42, 120, 214, 0.12);
+  --accent: #184f95;
+  --warn-bg: #fdf3dc;
+  --warn-text: #6b4b00;
+  --focus: #2a78d6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-page: #121211;
+    --surface-1: #1a1a19;
+    --surface-2: #252523;
+    --border: #383835;
+    --grid: #2d2d2b;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #96948a;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --band: rgba(57, 135, 229, 0.18);
+    --accent: #86b6ef;
+    --warn-bg: #2f2710;
+    --warn-text: #f1d58a;
+    --focus: #86b6ef;
+  }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-page: #121211;
+    --surface-1: #1a1a19;
+    --surface-2: #252523;
+    --border: #383835;
+    --grid: #2d2d2b;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #96948a;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --band: rgba(57, 135, 229, 0.18);
+    --accent: #86b6ef;
+    --warn-bg: #2f2710;
+    --warn-text: #f1d58a;
+    --focus: #86b6ef;
+  
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { margin: 0; min-height: 100%; }
+
+body {
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p { margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }

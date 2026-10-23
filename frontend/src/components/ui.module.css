@@ -1,0 +1,230 @@
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  min-width: 0;
+}
+
+.cardHead {
+  margin-bottom: 14px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.sub {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.cols2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cols3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cols5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .cols5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cols3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .cols2, .cols3, .cols5 { grid-template-columns: minmax(0, 1fr); }
+  .card { padding: 16px; }
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metricLabel {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.metricValue {
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricUnit {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.metricNote {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.metricSecondary {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+.errorBox {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--series-2);
+  background: var(--surface-2);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.errorBox strong { font-size: 14px; }
+.errorBox span { color: var(--text-secondary); font-size: 13px; }
+
+.button {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.button:hover { background: var(--surface-2); }
+
+.banner {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--series-1);
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bannerMain { font-size: 15px; }
+.bannerMain b { font-weight: 650; }
+.bannerSub { color: var(--text-secondary); font-size: 13px; }
+
+.note {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.tableWrap { overflow-x: auto; }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th {
+  text-align: right;
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table td {
+  text-align: right;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+
+.table th:first-child, .table td:first-child { text-align: left; }
+.table tr:last-child td { border-bottom: none; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.legendItem { display: inline-flex; align-items: center; gap: 7px; }
+.swatchLine { width: 18px; height: 0; border-top: 2px solid; display: inline-block; }
+.swatchBox { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+.details summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.details[open] summary { margin-bottom: 8px; }
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 20px;
+  margin-top: 14px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,0 +1,141 @@
+.app {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 20px 28px 32px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 28px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.brand h1 {
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+
+.brand p {
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  margin-top: 2px;
+}
+
+.cutoffBox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.cutoffBox label { font-weight: 600; }
+
+.select {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 14px;
+  min-width: 260px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.tab {
+  border: none;
+  background: none;
+  padding: 10px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab:hover { color: var(--text-primary); }
+
+.tabActive {
+  color: var(--text-primary);
+  border-bottom-color: var(--series-1);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.controls label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.stepBtn {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.stepBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.stepBtn:hover:not(:disabled) { background: var(--surface-2); }
+
+.toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.toggle button {
+  border: none;
+  background: var(--surface-1);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.toggle button[aria-pressed="true"] {
+  background: var(--series-1);
+  color: #fff;
+}
+
+.prose {
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin-top: 12px;
+  max-width: 90ch;
+}
+
+.prose b { color: var(--text-primary); }
+
+@media (max-width: 760px) {
+  .app { padding: 16px; }
+  .select { min-width: 0; width: 100%; }
+}
