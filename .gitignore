@@ -4,3 +4,13 @@ __pycache__/
 dist/
 .env
 .DS_Store
+.pytest_cache/
+.ruff_cache/
+.vercel/
+*.egg-info/
+
+# local-only working files
+CLAUDE.md
+docs/video-script.md
+docs/PHASE-REPORT.md
+data/raw/explore/
