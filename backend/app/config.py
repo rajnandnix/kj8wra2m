@@ -63,13 +63,20 @@ CUTOFFS: dict[str, Cutoff] = {
 }
 PRIMARY_CUTOFF = "epex60"
 
-# A forecast stamped t is treated as in hand only from t + PUBLICATION_LAG. The comparison
-# stays `publishTime + lag <= cutoff`. The data cannot show true availability latency; one
-# minute only stops a forecast stamped exactly at gate closure counting as already on the
-# desk. It matters for one cutoff only: WINDFOR publishes at 15:30 UTC, the 15:30 gate.
+# Deliberate conservatism: a forecast stamped t is treated as in hand only from t + PUBLICATION_LAG,
+# and the comparison stays `publishTime + lag <= cutoff`. A forecast stamped 15:30:00 is not on the
+# desk of someone submitting into a 15:30:00 gate, so it must not count as available to them.
+# WINDFOR publishes at 15:30 UTC, exactly the 15:30 gate closure, so this matters for that one
+# cutoff (it selects the 11:30 vintage, not 15:30). The data cannot show true availability
+# latency, so one minute is the smallest step that excludes a same-instant publication.
 PUBLICATION_LAG = timedelta(minutes=1)
 
 # --- Analysis parameters -----------------------------------------------------------------
+# Demo days. The default is a typical day where the band works; the sensitivity example is the day
+# where a later gate helps most (the 11:30 forecast revised the 07:30 to 09:30 one down sharply).
+DEFAULT_DELIVERY_DATE = date(2026, 1, 9)
+SENSITIVITY_EXAMPLE_DATE = date(2026, 1, 28)
+
 INTERVAL_HOURS = 1.0  # evaluation resolution: WINDFOR is hourly
 PERCENTILES = (10, 50, 90)
 # Generation-level buckets on actual MW. The brief's 0-2-4 GW example is far below the

@@ -11,3 +11,8 @@ frontend/Dockerfile
 docker-compose.yml
 .dockerignore
 *.log
+.env*
+.vercel
+.pytest_cache
+.ruff_cache
+**/__pycache__

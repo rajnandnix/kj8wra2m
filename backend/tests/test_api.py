@@ -21,6 +21,9 @@ def test_health_identifies_the_build_and_window():
     assert j["buildTimestamp"]
     assert [c["key"] for c in j["cutoffs"]] == ["epex60", "n2ex", "epex30"]
     assert j["primaryCutoff"] == "epex60"
+    assert j["defaultDeliveryDate"] == "2026-01-09"
+    assert j["sensitivityExampleDate"] == "2026-01-28"
+    assert j["largestMissDate"] == "2026-01-28"
 
 
 def test_forecast_echoes_the_cutoff_rule_and_never_shows_a_later_vintage():
@@ -31,7 +34,14 @@ def test_forecast_echoes_the_cutoff_rule_and_never_shows_a_later_vintage():
     assert j["vintagePublishTimes"] == ["2026-01-14T07:30:00Z"]
     assert len(j["forecast"]) == 24
     assert all(p["publishTime"] <= j["cutoffUtc"] for p in j["forecast"])
-    assert j["band"]["coverP90Mw"] >= 0 and "In-sample" in j["band"]["basis"]
+    band = j["band"]
+    assert band["conditional"] is True and band["coverP90Mw"] >= 0
+    assert "In-sample" in band["basis"] and "out-of-sample" in band["basis"]
+    assert [b["bucket"] for b in band["buckets"]] == ["< 6 GW", "6-10 GW", "10-14 GW", ">= 14 GW"]
+    assert all(70 <= b["coveragePct"] <= 90 for b in band["buckets"])  # in-sample, ~80% by design
+    assert 70 <= band["overallCoveragePct"] <= 90
+    assert all(p["bandBucket"] for p in j["forecast"])
+    assert all(p["windLowMw"] < p["forecastMw"] for p in j["forecast"] if p["forecastMw"] > 6000)
     assert "forecast - actual" in j["errorDefinition"]
 
 
@@ -86,3 +96,17 @@ def test_errors_are_clean_json_never_a_stack_trace(path, params, status):
 def test_openapi_page_is_served():
     assert client.get("/api/docs").status_code == 200
     assert client.get("/api/openapi.json").status_code == 200
+
+
+def test_band_is_conditional_on_forecast_level():
+    """A high-forecast day needs more cover than a low one: not a single global pair."""
+    hi = client.get("/api/forecast", params={"deliveryDate": "2026-01-12"}).json()["band"]  # ~19 GW
+    lo = client.get("/api/forecast", params={"deliveryDate": "2026-01-19"}).json()["band"]  # ~6 GW
+    assert hi["forecastMw"] > lo["forecastMw"] + 8000
+    assert hi["coverP90Mw"] > lo["coverP90Mw"] + 1000
+
+
+def test_sensitivity_is_cached_and_stable():
+    a = client.get("/api/sensitivity").json()
+    b = client.get("/api/sensitivity").json()
+    assert a == b

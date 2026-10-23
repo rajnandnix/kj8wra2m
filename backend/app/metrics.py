@@ -273,3 +273,104 @@ def compare_cutoffs(a: pd.DataFrame, b: pd.DataFrame) -> dict:
         "share_intervals_improved_pct": float((np.abs(eb) < np.abs(ea)).mean() * 100.0),
         "share_days_improved_pct": float((sb < sa).mean() * 100.0),
     }
+
+
+# --- conditional procurement band -------------------------------------------------------------
+# Forecast error is not the same size at every output level (bias grows with the forecast), so
+# the band uses the error quantiles of the bucket the hour's forecast falls in, not one global
+# pair. Buckets are the same forecast-level buckets as by_level(basis="forecast").
+
+
+def _labels(edges) -> list[str]:
+    return [_bucket_label(lo, hi) for lo, hi in zip(edges[:-1], edges[1:], strict=True)]
+
+
+def _bucket_of(values: pd.Series, edges) -> pd.Series:
+    cut = pd.cut(values, bins=list(edges), labels=_labels(edges), right=False)
+    return cut.astype(object).where(cut.notna(), None)
+
+
+def conditional_error_quantiles(
+    df: pd.DataFrame, edges=config.LEVEL_BUCKET_EDGES_MW
+) -> pd.DataFrame:
+    """P10, P50 and P90 of error within each forecast-level bucket (valid rows only)."""
+    v = _valid(df)
+    bucket = _bucket_of(v["forecast_mw"], edges)
+    rows = []
+    for label, lo, hi in zip(_labels(edges), edges[:-1], edges[1:], strict=True):
+        e = v.loc[bucket == label, "error"].to_numpy(dtype=float)
+        p = np.percentile(e, _Q) if e.size else (np.nan,) * 3
+        rows.append({
+            "bucket": label, "from_mw": float(lo), "to_mw": None if np.isinf(hi) else float(hi),
+            "n": int(e.size), "p10_mw": _f(p[0]), "p50_mw": _f(p[1]), "p90_mw": _f(p[2]),
+        })  # fmt: skip
+    return pd.DataFrame(rows)
+
+
+def apply_conditional_band(
+    forecasts: pd.Series, table: pd.DataFrame, edges=config.LEVEL_BUCKET_EDGES_MW
+) -> pd.DataFrame:
+    """Band for each forecast value, using the quantiles of that value's own bucket.
+
+    realised wind lies in [forecast - P90, forecast - P10]; the cover to hold at P90 is the P90
+    shortfall (forecast minus realised), floored at zero.
+    """
+    f = forecasts.astype(float).reset_index(drop=True)
+    bucket = _bucket_of(f, edges)
+    q = table.set_index("bucket")
+    p10 = bucket.map(q["p10_mw"]).astype(float)
+    p90 = bucket.map(q["p90_mw"]).astype(float)
+    return pd.DataFrame({
+        "bucket": bucket,
+        "wind_low_mw": f - p90,
+        "wind_high_mw": f - p10,
+        "cover_low_mw": p10,
+        "cover_high_mw": p90,
+        "cover_p90_mw": p90.clip(lower=0.0),
+    })  # fmt: skip
+
+
+def conditional_band_summary(df: pd.DataFrame, edges=config.LEVEL_BUCKET_EDGES_MW) -> dict:
+    """In-sample coverage of the conditional band, per bucket and overall, against the single
+    unconditional P10-P90 band for comparison. Fitted and scored on the same hours: this is
+    NOT an out-of-sample test."""
+    v = _valid(df).reset_index(drop=True)
+    table = conditional_error_quantiles(v, edges)
+    band = apply_conditional_band(v["forecast_mw"], table, edges)
+    inside = (v["actual_mw"] >= band["wind_low_mw"]) & (v["actual_mw"] <= band["wind_high_mw"])
+    h = headline(v)
+    uncond = (v["error"] >= h["p10_mw"]) & (v["error"] <= h["p90_mw"])
+    buckets = []
+    for r in table.to_dict("records"):
+        m = band["bucket"] == r["bucket"]
+        r["coverage_pct"] = _f(inside[m].mean() * 100.0) if m.any() else None
+        r["unconditional_coverage_pct"] = _f(uncond[m].mean() * 100.0) if m.any() else None
+        buckets.append(r)
+    return {
+        "buckets": buckets,
+        "n": len(v),
+        "overall_coverage_pct": _f(inside.mean() * 100.0),
+        "unconditional_coverage_pct": _f(uncond.mean() * 100.0),
+    }
+
+
+def day_band(
+    forecasts: pd.Series,
+    table: pd.DataFrame,
+    edges=config.LEVEL_BUCKET_EDGES_MW,
+    hours_each: float = config.INTERVAL_HOURS,
+) -> dict:
+    """Summarise the hour-by-hour conditional band over one delivery day."""
+    b = apply_conditional_band(forecasts, table, edges)
+    f = forecasts.astype(float).reset_index(drop=True)
+    n = int(f.notna().sum())
+    return {
+        "forecast_mw": _f(f.mean()),
+        "wind_low_mw": _f(b["wind_low_mw"].mean()),
+        "wind_high_mw": _f(b["wind_high_mw"].mean()),
+        "cover_low_mw": _f(b["cover_low_mw"].mean()),
+        "cover_high_mw": _f(b["cover_high_mw"].mean()),
+        "cover_p90_mw": _f(b["cover_p90_mw"].mean()),
+        "cover_p90_mwh": _f(b["cover_p90_mw"].sum() * hours_each),
+        "hours": float(n * hours_each),
+    }  # fmt: skip

@@ -31,7 +31,8 @@ class Data:
     forecasts: pd.DataFrame
     meta: dict[str, str]
     tables: dict[str, pd.DataFrame]  # aligned table per cutoff key
-    default_date: date
+    bands: dict[str, tuple[pd.DataFrame, dict]]  # per cutoff: forecast-level quantiles, summary
+    largest_miss_date: date
 
 
 @lru_cache(maxsize=1)
@@ -45,9 +46,13 @@ def get_data() -> Data:
         )
         for key, cutoff in config.CUTOFFS.items()
     }
+    bands = {
+        key: (metrics.conditional_error_quantiles(t), metrics.conditional_band_summary(t))
+        for key, t in tables.items()
+    }
     days = metrics.by_day(tables[config.PRIMARY_CUTOFF]).dropna(subset=["mae_mw"])
-    default = days.loc[days["mae_mw"].idxmax(), "delivery_date"]
-    return Data(actuals, forecasts, meta, tables, default)
+    largest = days.loc[days["mae_mw"].idxmax(), "delivery_date"]
+    return Data(actuals, forecasts, meta, tables, bands, largest)
 
 
 # --- helpers ------------------------------------------------------------------------------------
@@ -197,7 +202,9 @@ def health() -> schemas.HealthResponse:
         sources={"actuals": d.meta["source_fuelhh"], "forecast": d.meta["source_windfor"]},
         cutoffs=[cutoff_info(c) for c in config.CUTOFFS.values()],
         primary_cutoff=config.PRIMARY_CUTOFF,
-        default_delivery_date=d.default_date,
+        default_delivery_date=config.DEFAULT_DELIVERY_DATE,
+        largest_miss_date=d.largest_miss_date,
+        sensitivity_example_date=config.SENSITIVITY_EXAMPLE_DATE,
         error_definition=ERROR_DEFINITION,
     )
 
@@ -218,19 +225,17 @@ def forecast(
     day = full[full["delivery_date"] == delivery_date]
     cutoff_utc = align.decision_cutoff(delivery_date, c)
 
-    full_head = metrics.headline(full)
+    table, summary = d.bands[c.key]
     day_head = metrics.headline(day)
-    f_vals = day["forecast_mw"].dropna()
-    band_forecast = float(f_vals.mean())
-    band = metrics.procurement_band(band_forecast, full_head, hours=float(len(f_vals)))
+    hourly = metrics.apply_conditional_band(day["forecast_mw"], table)
+    day_band = metrics.day_band(day["forecast_mw"], table)
 
     points, inside = [], 0
-    for r in day.itertuples():
-        lo = hi = None
-        if pd.notna(r.forecast_mw):
-            lo, hi = r.forecast_mw - full_head["p90_mw"], r.forecast_mw - full_head["p10_mw"]
-            if pd.notna(r.actual_mw) and lo <= r.actual_mw <= hi:
-                inside += 1
+    for r, (_, b) in zip(day.itertuples(), hourly.iterrows(), strict=True):
+        lo = clean(b["wind_low_mw"])
+        hi = clean(b["wind_high_mw"])
+        if lo is not None and pd.notna(r.actual_mw) and lo <= r.actual_mw <= hi:
+            inside += 1
         points.append(
             schemas.ForecastPoint(
                 time=r.target_time,
@@ -241,6 +246,7 @@ def forecast(
                 lead_time_h=clean(r.lead_time_h),
                 wind_low_mw=lo,
                 wind_high_mw=hi,
+                band_bucket=clean(b["bucket"]),
                 status=r.status,
             )
         )
@@ -277,14 +283,19 @@ def forecast(
         hours_inside_band=inside,
         band=schemas.ProcurementBand(
             basis=(
-                f"Empirical P10/P90 of forecast error over all {full_head['n_valid']} hourly "
-                f"intervals, {config.DELIVERY_FROM} to {config.DELIVERY_TO}, at the "
-                f"{c.local_time:%H:%M} cutoff. In-sample: the day shown is part of that sample. "
-                f"Not a probabilistic forecast."
+                f"Each hour uses the P10 and P90 of forecast error for hours with a similar "
+                f"forecast "
+                f"level, from all {summary['n']} hourly intervals, {config.DELIVERY_FROM} to "
+                f"{config.DELIVERY_TO}, at the {c.local_time:%H:%M} cutoff. In-sample: the band is "
+                f"fitted and scored on the same month, including the day shown. One month cannot "
+                f"support out-of-sample validation, so coverage in other periods is unknown and "
+                f"likely lower. Not a probabilistic forecast."
             ),
-            p10_error_mw=full_head["p10_mw"],
-            p90_error_mw=full_head["p90_mw"],
-            **band,
+            conditional=True,
+            buckets=[schemas.BandBucket(**b) for b in summary["buckets"]],
+            overall_coverage_pct=summary["overall_coverage_pct"],
+            unconditional_coverage_pct=summary["unconditional_coverage_pct"],
+            **day_band,
         ),
         band_window=data_window(),
         other_cutoffs=others,
@@ -388,6 +399,11 @@ def sensitivity(
 ) -> schemas.SensitivityResponse:
     """The full metric set at every configured cutoff, and each against the primary cutoff."""
     lo, hi = resolve_range(from_, to)
+    return _sensitivity(lo, hi)
+
+
+@lru_cache(maxsize=16)
+def _sensitivity(lo: date, hi: date) -> schemas.SensitivityResponse:
     d = get_data()
     wins = {k: window_of(t, lo, hi) for k, t in d.tables.items()}
     results = [

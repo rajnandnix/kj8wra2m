@@ -53,6 +53,8 @@ class HealthResponse(Model):
     cutoffs: list[CutoffInfo]
     primary_cutoff: str
     default_delivery_date: date
+    largest_miss_date: date
+    sensitivity_example_date: date
     error_definition: str
 
 
@@ -79,10 +81,26 @@ class Headline(Model):
     mean_lead_time_h: float | None
 
 
+class BandBucket(Model):
+    """Error quantiles for one forecast-level bucket, with in-sample coverage of the band."""
+
+    bucket: str
+    from_mw: float
+    to_mw: float | None
+    n: int
+    p10_mw: float | None
+    p50_mw: float | None
+    p90_mw: float | None
+    coverage_pct: float | None
+    unconditional_coverage_pct: float | None
+
+
 class ProcurementBand(Model):
-    """Empirical band from the error quantiles of the whole window, applied to one forecast."""
+    """Empirical band around the day's forecast. Each hour uses the error quantiles of its own
+    forecast-level bucket. Figures are day averages of the hourly values, except MWh (a sum)."""
 
     basis: str
+    conditional: bool
     forecast_mw: float
     wind_low_mw: float
     wind_high_mw: float
@@ -91,8 +109,9 @@ class ProcurementBand(Model):
     cover_p90_mw: float
     cover_p90_mwh: float
     hours: float
-    p10_error_mw: float
-    p90_error_mw: float
+    buckets: list[BandBucket]
+    overall_coverage_pct: float | None
+    unconditional_coverage_pct: float | None
 
 
 class ForecastPoint(Model):
@@ -104,6 +123,7 @@ class ForecastPoint(Model):
     lead_time_h: float | None
     wind_low_mw: float | None
     wind_high_mw: float | None
+    band_bucket: str | None
     status: str
 
 

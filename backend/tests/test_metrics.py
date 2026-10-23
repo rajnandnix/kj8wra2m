@@ -192,3 +192,80 @@ def test_compare_cutoffs_paired_difference_and_bootstrap_is_seeded():
     assert c1 == metrics.compare_cutoffs(a, b), "bootstrap must be deterministic"
     lo, hi = c1["mae_delta_ci95_mw"]
     assert lo <= -50.0 + 1e-9 and hi >= -50.0 - 1e-9
+
+
+# --- conditional procurement band (quantiles per forecast-level bucket) -----------------------
+#
+# Two buckets on the forecast: < 1 GW and >= 1 GW. Within each, errors are chosen so the
+# linear-interpolation percentiles are easy to verify by hand:
+#   < 1 GW  (forecast 500):  errors [-20, -10, 0, 10, 20]   -> P10 -16, P50 0,   P90 16
+#   >= 1 GW (forecast 2000): errors [100, 200, 300, 400, 500] -> P10 140, P50 300, P90 460
+# A band is [forecast - P90, forecast - P10] on the realised wind, i.e. error in [P10, P90]:
+#   bucket 1 holds errors -10, 0, 10 (3 of 5);  bucket 2 holds 200, 300, 400 (3 of 5).
+EDGES = (0, 1000, float("inf"))
+
+
+def band_frame():
+    t0 = pd.Timestamp("2026-01-15T00:00:00Z")
+    rows = []
+    for i, (f, e) in enumerate(
+        [(500, x) for x in (-20, -10, 0, 10, 20)] + [(2000, x) for x in (100, 200, 300, 400, 500)]
+    ):
+        t = t0 + pd.Timedelta(hours=i)
+        rows.append(
+            dict(target_time=t, delivery_date=t.date(), hour=t.hour, forecast_mw=float(f),
+                 actual_mw=float(f - e), error=float(e), abs_error=float(abs(e)), status="ok",
+                 forecast_publish_time=t - pd.Timedelta(hours=24), lead_time_h=24.0)
+        )  # fmt: skip
+    return pd.DataFrame(rows)
+
+
+def test_conditional_quantiles_per_forecast_bucket():
+    q = metrics.conditional_error_quantiles(band_frame(), edges=EDGES).set_index("bucket")
+    assert list(q.index) == ["< 1 GW", ">= 1 GW"]
+    assert q.loc["< 1 GW", "n"] == 5 and q.loc[">= 1 GW", "n"] == 5
+    assert q.loc["< 1 GW", "p10_mw"] == pytest.approx(-16.0)
+    assert q.loc["< 1 GW", "p50_mw"] == pytest.approx(0.0)
+    assert q.loc["< 1 GW", "p90_mw"] == pytest.approx(16.0)
+    assert q.loc[">= 1 GW", "p10_mw"] == pytest.approx(140.0)
+    assert q.loc[">= 1 GW", "p50_mw"] == pytest.approx(300.0)
+    assert q.loc[">= 1 GW", "p90_mw"] == pytest.approx(460.0)
+
+
+def test_in_sample_coverage_is_reported_per_bucket_and_overall():
+    c = metrics.conditional_band_summary(band_frame(), edges=EDGES)
+    by = {b["bucket"]: b for b in c["buckets"]}
+    assert by["< 1 GW"]["coverage_pct"] == pytest.approx(60.0)
+    assert by[">= 1 GW"]["coverage_pct"] == pytest.approx(60.0)
+    assert c["overall_coverage_pct"] == pytest.approx(60.0)
+    # unconditional band over all ten errors, for comparison: P10 = -10 + ..., computed by headline
+    h = metrics.headline(band_frame())
+    inside = sum(
+        h["p10_mw"] <= e <= h["p90_mw"] for e in [-20, -10, 0, 10, 20, 100, 200, 300, 400, 500]
+    )
+    assert c["unconditional_coverage_pct"] == pytest.approx(inside / 10 * 100)
+
+
+def test_apply_band_uses_each_hours_own_bucket():
+    q = metrics.conditional_error_quantiles(band_frame(), edges=EDGES)
+    hours = pd.Series([500.0, 2000.0, 1000.0])  # 1000 sits on the left-closed edge: upper bucket
+    b = metrics.apply_conditional_band(hours, q, edges=EDGES)
+    assert list(b["wind_low_mw"]) == pytest.approx([500 - 16, 2000 - 460, 1000 - 460])
+    assert list(b["wind_high_mw"]) == pytest.approx([500 + 16, 2000 - 140, 1000 - 140])
+    assert list(b["cover_p90_mw"]) == pytest.approx([16.0, 460.0, 460.0])
+    assert list(b["bucket"]) == ["< 1 GW", ">= 1 GW", ">= 1 GW"]
+
+
+def test_day_band_summary_energy_is_sum_over_hours_of_p90_cover():
+    q = metrics.conditional_error_quantiles(band_frame(), edges=EDGES)
+    day = metrics.day_band(pd.Series([500.0, 2000.0]), q, edges=EDGES, hours_each=1.0)
+    assert day["cover_p90_mw"] == pytest.approx((16 + 460) / 2)  # mean MW across the hours
+    assert day["cover_p90_mwh"] == pytest.approx(16 + 460)  # MW x 1 h, summed
+    assert day["forecast_mw"] == pytest.approx(1250.0)
+
+
+def test_p90_cover_is_floored_at_zero_per_hour():
+    q = metrics.conditional_error_quantiles(band_frame(), edges=EDGES).copy()
+    q.loc[q.bucket == "< 1 GW", "p90_mw"] = -30.0
+    b = metrics.apply_conditional_band(pd.Series([500.0]), q, edges=EDGES)
+    assert b["cover_p90_mw"].iloc[0] == 0.0
