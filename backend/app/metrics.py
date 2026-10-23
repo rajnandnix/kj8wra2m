@@ -212,7 +212,7 @@ def level_trend(df: pd.DataFrame, basis: str = "actual") -> dict:
 def procurement_band(
     forecast_mw: float, headline: dict, hours: float = config.INTERVAL_HOURS
 ) -> dict:
-    """Turn the empirical error distribution into a band around a forecast (CLAUDE.md 3.5).
+    """Turn the empirical error distribution into a band around a forecast (brief section 3.5).
 
     realised = forecast - error, so the realised wind lies between forecast - P90(error) and
     forecast - P10(error) for 80% of historical intervals. The thermal cover to hold at P90 is

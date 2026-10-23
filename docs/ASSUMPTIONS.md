@@ -98,7 +98,7 @@ consecutive WIND `startTime` values are exactly 30 minutes, and the minute-of-ho
 
 **Verified. WINDFOR is hourly, not half-hourly.** All 21,312 gaps between consecutive `startTime`
 values within a publication are exactly 60 minutes, and every `startTime` is on the hour. The
-hourly/half-hourly mismatch described in CLAUDE.md 2.2 and 3.3 **exists**, so section 3.3
+hourly/half-hourly mismatch described in brief section 2.2 and 3.3 **exists**, so section 3.3
 (evaluate at native hourly resolution, average the two half-hourly actuals) applies.
 
 ### 2.6 WINDFOR publication cadence
@@ -177,7 +177,7 @@ window fits in one request per dataset. I did not test beyond 90 days.
 in 0.2 to 1.6s. No `429`, no `Retry-After`, and no rate-limit headers in any response. Retry with
 backoff is still worth implementing (cheap insurance), but it was never triggered.
 
-## 3. Contradictions with the project brief (CLAUDE.md)
+## 3. Contradictions with the project brief (brief)
 
 1. **Section 2.1 and 2.2 suggest `from`/`to` as a likely parameter pair. They are silently
    ignored** and return today's data with HTTP 200 (section 2.1). Use `publishDateTimeFrom/To`
@@ -189,7 +189,7 @@ backoff is still worth implementing (cheap insurance), but it was never triggere
    offset cuts the mean absolute gap from 1,687 MW to 1,174 MW. So most of the
    gap is a systematic level offset, i.e. exactly the "scope bias that cannot be separated
    from forecast error" of section 2.3. **Expect the Phase 3 headline MAE and bias to be well
-   above CLAUDE.md's "low hundreds of MW to ~1 GW" sanity range, and bias to be large and
+   above the brief's "low hundreds of MW to ~1 GW" sanity range, and bias to be large and
    positive.** Confirmed at day-ahead leads: bias +1.75 GW (+15.5% of mean actual) at the primary
    cutoff. Cause analysed in section 8.1.
 3. **Section 3.2: the 09:30 cutoff coincided with a publication time** (section 2.6), making the
@@ -279,7 +279,7 @@ not on this data.
 **Level buckets** are 0-6, 6-10, 10-14 and 14+ GW, not the brief's 0-2-4 GW example, because
 January GB wind (as served by FUELHH) ranged 1.7 to 17.8 GW with mean 11.3 GW.
 
-**Procurement band** (CLAUDE.md 3.5): realised = forecast - error, so the realised wind lies in
+**Procurement band** (brief section 3.5): realised = forecast - error, so the realised wind lies in
 [forecast - P90, forecast - P10]. Cover to hold at P90 = max(P90 of error, 0) MW; MWh = MW x hours.
 It is an empirical, **in-sample** band (the displayed day is part of the sample that sets the
 quantiles), unconditional on hour or level, and not a probabilistic forecast.

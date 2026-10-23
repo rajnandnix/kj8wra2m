@@ -1,6 +1,6 @@
 """Forecast vintage selection and resolution alignment.
 
-The rule that must never break (CLAUDE.md 3.2, no lookahead):
+The rule that must never break (brief section 3.2, no lookahead):
 
     usable_forecast(t) = the row with startTime == t and the maximum publishTime
                          subject to publishTime + PUBLICATION_LAG <= decision_cutoff(D)

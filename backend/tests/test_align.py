@@ -59,7 +59,7 @@ def pick(forecasts, cutoff: str, lag=LAG):
     return None if v is None else (v.publish_time, v.generation_mw)
 
 
-# --- core cases from CLAUDE.md 3.2 ------------------------------------------------------------
+# --- core cases from brief section 3.2 ------------------------------------------------------------
 
 
 def test_picks_latest_vintage_before_cutoff_not_the_latest_overall(forecasts):
@@ -176,7 +176,7 @@ def test_cutoffs_are_configured_in_one_place():
     ]
 
 
-# --- resolution alignment (CLAUDE.md 3.3) -----------------------------------------------------
+# --- resolution alignment (brief section 3.3) -----------------------------------------------------
 
 
 def test_hourly_actual_is_mean_of_two_half_hours_not_sum():
