@@ -1,4 +1,5 @@
 """Read-only access to the committed SQLite snapshot."""
+
 import sqlite3
 from pathlib import Path
 

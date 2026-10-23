@@ -5,6 +5,7 @@ too high, so the team under-procured from the day-ahead market.
 
 MAPE is deliberately not provided: wind output approaches zero, which makes it explode.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -24,11 +25,20 @@ def _valid(df: pd.DataFrame) -> pd.DataFrame:
 
 def _empty_headline(df: pd.DataFrame) -> dict:
     return {
-        "mae_mw": None, "rmse_mw": None, "bias_mw": None, "nmae_pct": None,
-        "mean_actual_mw": None, "mean_forecast_mw": None,
-        "p10_mw": None, "p50_mw": None, "p90_mw": None,
-        "max_abs_error_mw": None, "max_abs_error_time": None,
-        "debiased_mae_mw": None, "debiased_rmse_mw": None, "mean_lead_time_h": None,
+        "mae_mw": None,
+        "rmse_mw": None,
+        "bias_mw": None,
+        "nmae_pct": None,
+        "mean_actual_mw": None,
+        "mean_forecast_mw": None,
+        "p10_mw": None,
+        "p50_mw": None,
+        "p90_mw": None,
+        "max_abs_error_mw": None,
+        "max_abs_error_time": None,
+        "debiased_mae_mw": None,
+        "debiased_rmse_mw": None,
+        "mean_lead_time_h": None,
     }
 
 
@@ -131,16 +141,18 @@ def by_day(df: pd.DataFrame) -> pd.DataFrame:
     for day, g in df.groupby("delivery_date", sort=True):
         v = _valid(g)
         e = v["error"].to_numpy(dtype=float)
-        rows.append({
-            "delivery_date": day,
-            "n_expected": len(g),
-            "n_valid": len(v),
-            "mae_mw": _f(np.abs(e).mean()) if len(v) else None,
-            "rmse_mw": _f(np.sqrt((e**2).mean())) if len(v) else None,
-            "bias_mw": _f(e.mean()) if len(v) else None,
-            "mean_actual_mw": _f(v["actual_mw"].mean()) if len(v) else None,
-            "max_abs_error_mw": _f(np.abs(e).max()) if len(v) else None,
-        })
+        rows.append(
+            {
+                "delivery_date": day,
+                "n_expected": len(g),
+                "n_valid": len(v),
+                "mae_mw": _f(np.abs(e).mean()) if len(v) else None,
+                "rmse_mw": _f(np.sqrt((e**2).mean())) if len(v) else None,
+                "bias_mw": _f(e.mean()) if len(v) else None,
+                "mean_actual_mw": _f(v["actual_mw"].mean()) if len(v) else None,
+                "max_abs_error_mw": _f(np.abs(e).max()) if len(v) else None,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -159,7 +171,14 @@ def histogram(df: pd.DataFrame, bin_mw: float = config.HISTOGRAM_BIN_MW) -> list
 
 
 def worst_intervals(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
-    cols = ["target_time", "forecast_mw", "actual_mw", "error", "abs_error", "forecast_publish_time"]
+    cols = [
+        "target_time",
+        "forecast_mw",
+        "actual_mw",
+        "error",
+        "abs_error",
+        "forecast_publish_time",
+    ]
     return _valid(df).sort_values("abs_error", ascending=False).head(n)[cols].reset_index(drop=True)
 
 
@@ -172,7 +191,12 @@ def level_trend(df: pd.DataFrame, basis: str = "actual") -> dict:
     """
     v = _valid(df)
     if len(v) < 3:
-        return {"slope_mw_per_mw": None, "intercept_mw": None, "correlation": None, "r_squared": None}
+        return {
+            "slope_mw_per_mw": None,
+            "intercept_mw": None,
+            "correlation": None,
+            "r_squared": None,
+        }
     col = "actual_mw" if basis == "actual" else "forecast_mw"
     x, e = v[col].to_numpy(dtype=float), v["error"].to_numpy(dtype=float)
     slope, intercept = np.polyfit(x, e, 1)
@@ -185,7 +209,9 @@ def level_trend(df: pd.DataFrame, basis: str = "actual") -> dict:
     }
 
 
-def procurement_band(forecast_mw: float, headline: dict, hours: float = config.INTERVAL_HOURS) -> dict:
+def procurement_band(
+    forecast_mw: float, headline: dict, hours: float = config.INTERVAL_HOURS
+) -> dict:
     """Turn the empirical error distribution into a band around a forecast (CLAUDE.md 3.5).
 
     realised = forecast - error, so the realised wind lies between forecast - P90(error) and
@@ -234,7 +260,8 @@ def compare_cutoffs(a: pd.DataFrame, b: pd.DataFrame) -> dict:
     pct = delta / ra * 100.0
     return {
         "n_paired": n,
-        "mae_a_mw": float(mae_a), "mae_b_mw": float(mae_b),
+        "mae_a_mw": float(mae_a),
+        "mae_b_mw": float(mae_b),
         "mae_delta_mw": float(mae_b - mae_a),
         "mae_delta_pct": float((mae_b - mae_a) / mae_a * 100.0),
         "mae_delta_ci95_mw": (float(np.percentile(delta, 2.5)), float(np.percentile(delta, 97.5))),

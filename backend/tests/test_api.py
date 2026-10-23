@@ -1,4 +1,5 @@
 """API contract tests against the committed snapshot."""
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -12,7 +13,10 @@ client = TestClient(app, raise_server_exceptions=False)
 def test_health_identifies_the_build_and_window():
     j = client.get("/api/health").json()
     assert j["status"] == "ok"
-    assert j["dataWindow"]["deliveryFrom"] == "2026-01-02" and j["dataWindow"]["deliveryTo"] == "2026-02-01"
+    assert (
+        j["dataWindow"]["deliveryFrom"] == "2026-01-02"
+        and j["dataWindow"]["deliveryTo"] == "2026-02-01"
+    )
     assert j["rowCounts"]["actuals"] == 1488
     assert j["buildTimestamp"]
     assert [c["key"] for c in j["cutoffs"]] == ["epex60", "n2ex", "epex30"]
@@ -32,7 +36,9 @@ def test_forecast_echoes_the_cutoff_rule_and_never_shows_a_later_vintage():
 
 
 def test_forecast_at_later_cutoff_uses_a_later_vintage():
-    j = client.get("/api/forecast", params={"deliveryDate": "2026-01-15", "cutoff": "epex30"}).json()
+    j = client.get(
+        "/api/forecast", params={"deliveryDate": "2026-01-15", "cutoff": "epex30"}
+    ).json()
     assert j["vintagePublishTimes"] == ["2026-01-14T11:30:00Z"]  # not the 15:30 one on the gate
 
 

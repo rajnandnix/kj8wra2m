@@ -10,6 +10,7 @@ Verified API behaviour this module relies on (docs/ASSUMPTIONS.md section 2):
   * unknown parameters such as `from`/`to` are silently ignored, so every response is
     validated against the window that was asked for.
 """
+
 import argparse
 import json
 import sqlite3
@@ -167,7 +168,9 @@ def build_db(actuals: pd.DataFrame, forecasts: pd.DataFrame, dups: dict[str, int
     con.executemany("INSERT INTO actuals VALUES (?, ?)", a.itertuples(index=False))
     con.executemany("INSERT INTO forecasts VALUES (?, ?, ?)", f.itertuples(index=False))
     con.execute("CREATE INDEX idx_actuals_start ON actuals (start_time_utc)")
-    con.execute("CREATE INDEX idx_forecasts_start_pub ON forecasts (start_time_utc, publish_time_utc)")
+    con.execute(
+        "CREATE INDEX idx_forecasts_start_pub ON forecasts (start_time_utc, publish_time_utc)"
+    )
     meta = {
         "build_timestamp_utc": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_windfor": config.WINDFOR_URL,
@@ -202,7 +205,8 @@ def main(argv: list[str] | None = None) -> None:
 
     expected = ((config.DELIVERY_TO - config.DELIVERY_FROM).days + 1) * 48
     print(f"network calls: {_network_calls}")
-    print(f"actuals: {len(fuelhh)} rows (expected {expected} half-hours, {len(fuelhh) / expected:.1%})")
+    coverage = len(fuelhh) / expected
+    print(f"actuals: {len(fuelhh)} rows (expected {expected} half-hours, {coverage:.1%})")
     print(
         f"forecasts: {len(windfor)} rows, {windfor.publishTime.nunique()} publications, "
         f"{windfor.startTime.min()} -> {windfor.startTime.max()}"

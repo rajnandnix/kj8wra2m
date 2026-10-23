@@ -8,6 +8,7 @@ The rule that must never break (CLAUDE.md 3.2, no lookahead):
 A forecast published after the cutoff is never used, and there is no fallback to one when
 nothing earlier exists: the interval is reported as missing instead.
 """
+
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -133,7 +134,16 @@ def build_aligned_table(
     t["abs_error"] = t["error"].abs()
     t["lead_time_h"] = (t["target_time"] - t["forecast_publish_time"]).dt.total_seconds() / 3600
     cols = [
-        "target_time", "delivery_date", "hour", "cutoff", "forecast_mw", "forecast_publish_time",
-        "lead_time_h", "actual_mw", "error", "abs_error", "status",
+        "target_time",
+        "delivery_date",
+        "hour",
+        "cutoff",
+        "forecast_mw",
+        "forecast_publish_time",
+        "lead_time_h",
+        "actual_mw",
+        "error",
+        "abs_error",
+        "status",
     ]
     return t[cols]

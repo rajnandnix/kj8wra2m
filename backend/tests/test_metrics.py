@@ -10,6 +10,7 @@ Fixture (error = forecast - actual, MW):
     debiased: e - 20 = [80, -70, 180, -20, -170]
         MAE = 520 / 5 = 104;  RMSE = sqrt(15000 - 20^2) = sqrt(14600) = 120.8305
 """
+
 import math
 
 import pandas as pd
@@ -26,16 +27,36 @@ def frame(extra=()):
     rows = []
     for i, (e, a) in enumerate(zip(ERR, ACT, strict=True)):
         t = base + pd.Timedelta(hours=i * 5)  # hours 0, 5, 10, 15, 20
-        rows.append(dict(target_time=t, delivery_date=t.date(), hour=t.hour, actual_mw=a,
-                         forecast_mw=a + e, error=e, abs_error=abs(e), status="ok",
-                         forecast_publish_time=t - pd.Timedelta(hours=24), lead_time_h=24.0))
+        rows.append(
+            dict(
+                target_time=t,
+                delivery_date=t.date(),
+                hour=t.hour,
+                actual_mw=a,
+                forecast_mw=a + e,
+                error=e,
+                abs_error=abs(e),
+                status="ok",
+                forecast_publish_time=t - pd.Timedelta(hours=24),
+                lead_time_h=24.0,
+            )
+        )
     for j, status in enumerate(extra):
         t = base + pd.Timedelta(days=1, hours=j)
-        rows.append(dict(target_time=t, delivery_date=t.date(), hour=t.hour,
-                         actual_mw=None if status != "missing_forecast" else 100.0,
-                         forecast_mw=None if status != "missing_actual" else 100.0,
-                         error=float("nan"), abs_error=float("nan"), status=status,
-                         forecast_publish_time=pd.NaT, lead_time_h=float("nan")))
+        rows.append(
+            dict(
+                target_time=t,
+                delivery_date=t.date(),
+                hour=t.hour,
+                actual_mw=None if status != "missing_forecast" else 100.0,
+                forecast_mw=None if status != "missing_actual" else 100.0,
+                error=float("nan"),
+                abs_error=float("nan"),
+                status=status,
+                forecast_publish_time=pd.NaT,
+                lead_time_h=float("nan"),
+            )
+        )
     return pd.DataFrame(rows)
 
 

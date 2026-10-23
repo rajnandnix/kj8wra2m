@@ -1,4 +1,5 @@
 """Response models. JSON uses camelCase; Python uses snake_case."""
+
 from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict

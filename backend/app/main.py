@@ -1,4 +1,5 @@
 """FastAPI app. Read-only: analytics are computed from the committed SQLite snapshot."""
+
 import logging
 import os
 from dataclasses import dataclass
@@ -152,7 +153,9 @@ def _err(status: int, code: str, message: str) -> JSONResponse:
 
 @app.exception_handler(HTTPException)
 async def http_error(_: Request, exc: HTTPException) -> JSONResponse:
-    return _err(exc.status_code, "bad_request" if exc.status_code < 500 else "error", str(exc.detail))
+    return _err(
+        exc.status_code, "bad_request" if exc.status_code < 500 else "error", str(exc.detail)
+    )
 
 
 @app.exception_handler(RequestValidationError)

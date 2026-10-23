@@ -2,6 +2,7 @@
 
 Nothing else in the codebase may hard-code a date, a cutoff time or a URL.
 """
+
 import os
 from dataclasses import dataclass
 from datetime import date, time, timedelta

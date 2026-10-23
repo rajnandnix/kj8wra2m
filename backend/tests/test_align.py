@@ -4,6 +4,7 @@ Rule under test: for target time t and decision cutoff c, the usable forecast is
 startTime == t and the maximum publishTime subject to publishTime + lag <= c. Nothing published
 later is ever used, and there is no fallback to a later vintage.
 """
+
 import random
 from datetime import date, timedelta
 
@@ -117,9 +118,7 @@ def test_exhaustive_never_uses_a_vintage_published_after_the_cutoff(forecasts):
         cutoff = base + pd.Timedelta(minutes=rng.randrange(0, 60 * 48))
         for lag in (NO_LAG, LAG):
             got = select_vintage(forecasts, TARGET, cutoff, lag)
-            eligible = [
-                (ts(p), mw) for p, mw in VINTAGES.items() if ts(p) + lag <= cutoff
-            ]
+            eligible = [(ts(p), mw) for p, mw in VINTAGES.items() if ts(p) + lag <= cutoff]
             if not eligible:
                 assert got is None
             else:
@@ -130,10 +129,16 @@ def test_exhaustive_never_uses_a_vintage_published_after_the_cutoff(forecasts):
 
 
 def test_vectorised_selection_matches_scalar(forecasts):
-    cutoffs = ["2026-01-13T10:00:00Z", "2026-01-14T09:20:00Z", "2026-01-14T09:50:00Z",
-               "2026-01-14T15:30:00Z", "2026-01-16T00:00:00Z"]
-    targets = pd.DataFrame({"target_time": [TARGET] * len(cutoffs),
-                            "cutoff": [ts(c) for c in cutoffs]})
+    cutoffs = [
+        "2026-01-13T10:00:00Z",
+        "2026-01-14T09:20:00Z",
+        "2026-01-14T09:50:00Z",
+        "2026-01-14T15:30:00Z",
+        "2026-01-16T00:00:00Z",
+    ]
+    targets = pd.DataFrame(
+        {"target_time": [TARGET] * len(cutoffs), "cutoff": [ts(c) for c in cutoffs]}
+    )
     out = select_vintages(forecasts, targets, LAG)
     for i, c in enumerate(cutoffs):
         want = pick(forecasts, c)
@@ -151,7 +156,9 @@ def test_decision_cutoff_is_d_minus_one_london_time_in_utc():
     c = decision_cutoff(date(2026, 1, 15), config.CUTOFFS["epex60"])
     assert c == ts("2026-01-14T09:20:00Z")  # GMT: London == UTC in January
     assert decision_cutoff(date(2026, 1, 15), config.CUTOFFS["n2ex"]) == ts("2026-01-14T09:50:00Z")
-    assert decision_cutoff(date(2026, 1, 15), config.CUTOFFS["epex30"]) == ts("2026-01-14T15:30:00Z")
+    assert decision_cutoff(date(2026, 1, 15), config.CUTOFFS["epex30"]) == ts(
+        "2026-01-14T15:30:00Z"
+    )
 
 
 def test_decision_cutoff_converts_london_summer_time():
@@ -163,16 +170,22 @@ def test_decision_cutoff_converts_london_summer_time():
 def test_cutoffs_are_configured_in_one_place():
     assert config.PRIMARY_CUTOFF == "epex60"
     assert [(k, f"{c.local_time:%H:%M}") for k, c in config.CUTOFFS.items()] == [
-        ("epex60", "09:20"), ("n2ex", "09:50"), ("epex30", "15:30")]
+        ("epex60", "09:20"),
+        ("n2ex", "09:50"),
+        ("epex30", "15:30"),
+    ]
 
 
 # --- resolution alignment (CLAUDE.md 3.3) -----------------------------------------------------
 
 
 def test_hourly_actual_is_mean_of_two_half_hours_not_sum():
-    a = pd.DataFrame({
-        "start_time": [ts("2026-01-15T12:00:00Z"), ts("2026-01-15T12:30:00Z")],
-        "generation_mw": [1000.0, 2000.0]})
+    a = pd.DataFrame(
+        {
+            "start_time": [ts("2026-01-15T12:00:00Z"), ts("2026-01-15T12:30:00Z")],
+            "generation_mw": [1000.0, 2000.0],
+        }
+    )
     h = hourly_actuals(a)
     assert h[ts("2026-01-15T12:00:00Z")] == 1500.0
 
@@ -183,7 +196,7 @@ def test_hourly_actual_is_missing_if_either_half_hour_is_missing():
     assert pd.isna(h.get(ts("2026-01-15T12:00:00Z"), np.nan))
 
 
-# --- aligned table: outer join, statuses, signs, lead time -----------------------------------------
+# --- aligned table: outer join, statuses, signs, lead time ---
 
 
 def mini_inputs():
@@ -214,25 +227,34 @@ def test_aligned_table_is_outer_join_with_every_expected_hour_and_explicit_statu
     assert s[3] == "missing_forecast"
     assert s[5] == "missing_actual" and s[7] == "missing_actual"
     assert (s.drop([3, 5, 7]) == "ok").all()
-    assert t.status.value_counts().to_dict() == {"ok": 21, "missing_forecast": 1, "missing_actual": 2}
+    assert t.status.value_counts().to_dict() == {
+        "ok": 21,
+        "missing_forecast": 1,
+        "missing_actual": 2,
+    }
 
 
 def test_aligned_table_never_uses_the_decoy_late_vintage():
     actuals, forecasts = mini_inputs()
-    t = build_aligned_table(actuals, forecasts, date(2026, 1, 15), date(2026, 1, 15),
-                            config.CUTOFFS["epex60"])
+    t = build_aligned_table(
+        actuals, forecasts, date(2026, 1, 15), date(2026, 1, 15), config.CUTOFFS["epex60"]
+    )
     assert (t.forecast_publish_time.dropna() == ts("2026-01-14T07:30:00Z")).all()
-    assert (t.forecast_publish_time.dropna() + LAG <= t.cutoff[t.forecast_publish_time.notna()]).all()
+    assert (
+        t.forecast_publish_time.dropna() + LAG <= t.cutoff[t.forecast_publish_time.notna()]
+    ).all()
     # with the 09:50 gate the decoy IS in hand, proving the cutoff alone made the difference
-    t2 = build_aligned_table(actuals, forecasts, date(2026, 1, 15), date(2026, 1, 15),
-                             config.CUTOFFS["n2ex"])
+    t2 = build_aligned_table(
+        actuals, forecasts, date(2026, 1, 15), date(2026, 1, 15), config.CUTOFFS["n2ex"]
+    )
     assert (t2.forecast_mw == 5000.0).all()
 
 
 def test_error_sign_and_lead_time():
     actuals, forecasts = mini_inputs()
-    t = build_aligned_table(actuals, forecasts, date(2026, 1, 15), date(2026, 1, 15),
-                            config.CUTOFFS["epex60"])
+    t = build_aligned_table(
+        actuals, forecasts, date(2026, 1, 15), date(2026, 1, 15), config.CUTOFFS["epex60"]
+    )
     r = t[t.target_time == ts("2026-01-15T12:00:00Z")].iloc[0]
     assert r.forecast_mw == 1012.0 and r.actual_mw == 900.0
     assert r.error == 112.0, "error = forecast - actual; positive means forecast too high"
@@ -242,8 +264,9 @@ def test_error_sign_and_lead_time():
 
 def test_aligned_table_has_one_row_per_day_per_hour_over_several_days():
     actuals, forecasts = mini_inputs()
-    t = build_aligned_table(actuals, forecasts, date(2026, 1, 14), date(2026, 1, 16),
-                            config.CUTOFFS["epex60"])
+    t = build_aligned_table(
+        actuals, forecasts, date(2026, 1, 14), date(2026, 1, 16), config.CUTOFFS["epex60"]
+    )
     assert len(t) == 72
     assert t.delivery_date.nunique() == 3
 
@@ -257,8 +280,9 @@ def test_real_data_no_selected_forecast_postdates_its_cutoff(key):
     from app import storage
 
     actuals, forecasts = storage.load_frames(config.DB_PATH)
-    t = build_aligned_table(actuals, forecasts, config.DELIVERY_FROM, config.DELIVERY_TO,
-                            config.CUTOFFS[key])
+    t = build_aligned_table(
+        actuals, forecasts, config.DELIVERY_FROM, config.DELIVERY_TO, config.CUTOFFS[key]
+    )
     used = t.dropna(subset=["forecast_publish_time"])
     assert len(used) == len(t) == 31 * 24, "every delivery hour should have a usable vintage"
     assert (used.forecast_publish_time + LAG <= used.cutoff).all(), "LOOKAHEAD LEAK"
