@@ -36,9 +36,9 @@ export function Footer({ cutoffKey }: { cutoffKey: string }) {
         <div>
           <h3>Scope caveat</h3>
           <p>
-            National GB, wind only. FUELHH covers transmission-metered, BM-registered wind; embedded wind is excluded.
-            The two datasets are not equivalent in scope: WINDFOR runs about 13 to 16% above FUELHH, which this tool reports
-            as bias, not as forecast skill.
+            National GB, wind only. FUELHH covers transmission-metered, BM-registered wind and excludes embedded wind; WINDFOR
+            covers more of the fleet. Measured against FUELHH the forecast therefore runs about 13 to 16% high; against
+            full-fleet outturn the bias is slightly negative. This tool reports that as bias, not as forecast skill.
           </p>
         </div>
       </div>

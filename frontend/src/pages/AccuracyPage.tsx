@@ -1,5 +1,5 @@
 import { ErrorHistogram, ErrorSeriesChart } from "../components/charts/AccuracyCharts";
-import { MetricCards, SignNote } from "../components/MetricCards";
+import { LeadFinding, MetricCards, SignNote } from "../components/MetricCards";
 import { SensitivityPanel } from "../components/SensitivityPanel";
 import { Async, Card, DataTable, Details, Grid } from "../components/ui";
 import { useAccuracy } from "../hooks/useApi";
@@ -10,13 +10,14 @@ export function AccuracyPage({ cutoffKey }: { cutoffKey: string }) {
   const q = useAccuracy(cutoffKey);
   return (
     <div className={s.stack}>
-      <SignNote />
       <Async query={q} height={420}>
         {(d) => (
           <>
+            <LeadFinding h={d.headline} cutoffLabel={`${d.cutoff.localTime} ${d.cutoff.label}`} />
             <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: 13.5 }}>
               {d.cutoff.label}, {d.cutoff.localTime} Europe/London on D-1. {d.cutoff.rule}
             </p>
+            <SignNote />
             <MetricCards h={d.headline} />
             <Card
               title="Forecast error across every delivery day"

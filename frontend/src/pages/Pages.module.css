@@ -139,3 +139,14 @@
   .app { padding: 16px; }
   .select { min-width: 0; width: 100%; }
 }
+
+.linkBtn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-weight: 650;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+}

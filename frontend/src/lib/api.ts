@@ -26,6 +26,8 @@ export interface Health {
   cutoffs: CutoffInfo[];
   primaryCutoff: string;
   defaultDeliveryDate: string;
+  largestMissDate: string;
+  sensitivityExampleDate: string;
   errorDefinition: string;
 }
 
@@ -52,8 +54,21 @@ export interface Headline {
   meanLeadTimeH: number | null;
 }
 
+export interface BandBucket {
+  bucket: string;
+  fromMw: number;
+  toMw: number | null;
+  n: number;
+  p10Mw: number | null;
+  p50Mw: number | null;
+  p90Mw: number | null;
+  coveragePct: number | null;
+  unconditionalCoveragePct: number | null;
+}
+
 export interface ProcurementBand {
   basis: string;
+  conditional: boolean;
   forecastMw: number;
   windLowMw: number;
   windHighMw: number;
@@ -62,8 +77,9 @@ export interface ProcurementBand {
   coverP90Mw: number;
   coverP90Mwh: number;
   hours: number;
-  p10ErrorMw: number;
-  p90ErrorMw: number;
+  buckets: BandBucket[];
+  overallCoveragePct: number | null;
+  unconditionalCoveragePct: number | null;
 }
 
 export interface ForecastPoint {
@@ -75,6 +91,7 @@ export interface ForecastPoint {
   leadTimeH: number | null;
   windLowMw: number | null;
   windHighMw: number | null;
+  bandBucket: string | null;
   status: string;
 }
 

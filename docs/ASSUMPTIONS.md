@@ -182,16 +182,11 @@ backoff is still worth implementing (cheap insurance), but it was never triggere
 1. **Section 2.1 and 2.2 suggest `from`/`to` as a likely parameter pair. They are silently
    ignored** and return today's data with HTTP 200 (section 2.1). Use `publishDateTimeFrom/To`
    (or `settlementDateFrom/To` for FUELHH) and validate the returned range.
-2. **Section 2.3 and 3.4 assume the two datasets are broadly comparable in scope. At the level
-   of absolute MW they are not.** At short lead times (0.5h to 3.5h, 744 hourly targets over
-   the delivery window) the WINDFOR value averages **12,757 MW** against **11,284 MW** for FUELHH
-   WIND: a mean offset of **+1,473 MW (+13.1%)**, with correlation 0.957. Removing the mean
-   offset cuts the mean absolute gap from 1,687 MW to 1,174 MW. So most of the
-   gap is a systematic level offset, i.e. exactly the "scope bias that cannot be separated
-   from forecast error" of section 2.3. **Expect the Phase 3 headline MAE and bias to be well
-   above the brief's "low hundreds of MW to ~1 GW" sanity range, and bias to be large and
-   positive.** Confirmed at day-ahead leads: bias +1.75 GW (+15.5% of mean actual) at the primary
-   cutoff. Cause analysed in section 8.1.
+2. **Section 2.3 and 3.4 assume the two datasets are broadly comparable in scope. They are not.**
+   Measured against FUELHH, WINDFOR runs about 13% high at short lead (+1,473 MW, correlation 0.957)
+   and 15.5% high at the day-ahead cutoff (bias +1.75 GW). **Validated in section 8.2 as a scope
+   difference, not a bug:** FUELHH excludes embedded wind, which independent sources put at about
+   2.5 GW on average, and against full-fleet outturn the day-ahead bias is slightly negative.
 3. **Section 3.2: the 09:30 cutoff coincided with a publication time** (section 2.6), making the
    "publishTime exactly equal to the cutoff" edge case the dominant case. Resolved by replacing
    the round number with real gate-closure times (section 4).
@@ -218,15 +213,17 @@ is computed at all three and compared in the UI.
 
 Comparison operator: `publishTime + PUBLICATION_LAG <= cutoff`, i.e. `<=` is kept.
 
-**Deviation to flag: one publication does land exactly on a boundary.** WINDFOR publishes at
-15:30 UTC, which is exactly the 15:30 gate closure. The premise that "no publication time lands
-exactly on a boundary" is true for 09:20 and 09:50 but not for 15:30. With a bare `<=` the
-15:30 vintage would be used at the 15:30 cutoff, which contradicts the stated intent that this
-cutoff makes the **11:30** vintage usable. I resolved it by honouring the intent:
-`config.PUBLICATION_LAG = 1 minute`, so a forecast stamped t is treated as in hand from t + 1 min.
-The operator stays `<=`. Only the 15:30 cutoff is affected. Setting the lag to zero gives the
-15:30 vintage at that gate; that variant measured MAE 1,873.5 MW against 1,904.0 MW with the lag
-(a 30 MW difference, recorded in the phase report).
+**One publication does land exactly on a boundary, and the lag is deliberate conservatism.**
+WINDFOR publishes at 15:30 UTC, which is exactly the 15:30 gate closure. The product owner's
+premise that "no publication time lands exactly on a boundary" holds for 09:20 and 09:50 but not
+for 15:30 (the premise was acknowledged as theirs and the fix confirmed). The reasoning: **a
+forecast stamped 15:30:00 is not on the desk of someone submitting into a 15:30:00 gate.** So
+`config.PUBLICATION_LAG = 1 minute`: a forecast stamped t is treated as in hand from t + 1 min,
+and the comparison stays `publishTime + lag <= cutoff`. This is a choice for lookahead safety,
+not a workaround: it makes the 15:30 cutoff use the 11:30 vintage, as intended. Only that cutoff is
+affected. With the lag at zero the 15:30 gate would use the 15:30 vintage and measure MAE
+1,873.5 MW against 1,904.0 MW with the lag, so the conservative choice costs 30 MW of apparent
+accuracy.
 
 Cutoff is converted from London wall-clock time to UTC with `zoneinfo`, so it is correct across
 clock changes (tested for July). January has no clock change.
@@ -279,34 +276,92 @@ not on this data.
 **Level buckets** are 0-6, 6-10, 10-14 and 14+ GW, not the brief's 0-2-4 GW example, because
 January GB wind (as served by FUELHH) ranged 1.7 to 17.8 GW with mean 11.3 GW.
 
-**Procurement band** (brief section 3.5): realised = forecast - error, so the realised wind lies in
-[forecast - P90, forecast - P10]. Cover to hold at P90 = max(P90 of error, 0) MW; MWh = MW x hours.
-It is an empirical, **in-sample** band (the displayed day is part of the sample that sets the
-quantiles), unconditional on hour or level, and not a probabilistic forecast.
+**Procurement band** (brief section 3.5), **conditional on forecast level.** realised = forecast
+- error, so the realised wind lies in [forecast - P90, forecast - P10]. The P10 and P90 are taken
+from the bucket the hour's forecast falls in (0-6, 6-10, 10-14, 14+ GW, left-closed), because bias
+grows with the forecast level. Each hour of a delivery day uses its own bucket; the headline
+shows day averages, and MWh is the sum over hours of the hourly P90 cover (floored at zero) x 1 h.
+Buckets step where a forecast crosses an edge, so the band is not smooth there. It is an empirical,
+**in-sample** band (fitted and scored on the same 744 hours, including the displayed day) and not a
+probabilistic forecast. One month cannot support out-of-sample validation, so coverage in other
+periods is unknown and probably lower. An informal leave-one-day-out check gave 76.5% hour
+coverage against 79.3% in-sample (diagnostic only, not a validation).
+
+In-sample coverage at the primary cutoff (hours whose actual fell inside the band):
+
+| Forecast level | Hours | P10 / P50 / P90 of error (MW) | Conditional band | Single global band |
+|---|---|---|---|---|
+| < 6 GW | 63 | -832 / +1,127 / +2,239 | 77.8% | 74.6% |
+| 6-10 GW | 182 | -1,604 / +936 / +2,607 | 79.1% | 68.7% |
+| 10-14 GW | 163 | -53 / +1,506 / +3,305 | 79.1% | 89.0% |
+| >= 14 GW | 336 | +537 / +2,388 / +4,730 | 79.8% | 82.4% |
+| **All** | 744 | | **79.3%** | **79.8%** |
+
+Overall coverage is about the same (both target the middle 80%); the gain is that coverage is now
+even across levels (78-80% each) where the single global band ranged 69-89%, and the cover to hold
+at P90 is sized to the forecast (2.2 GW below 6 GW, 4.7 GW at 14 GW and above, against 4.1 GW for
+everything). Coverage clusters by day: with the conditional band 8 of 31 days are fully inside
+and 9 Jan is 20 of 24 hours inside while 28 Jan is 0 of 24, so a per-hour "8 in 10" statement
+understates day-level risk.
+
+**Default demo day** is 9 Jan (a day where the band works); 28 Jan (the largest miss at the primary
+cutoff) is kept as the cutoff-sensitivity example, where the 15:30 gate cuts that day's MAE from
+5,375 to 2,991 MW because the 11:30 publication revised the 07:30 to 09:30 forecast down by 1 to 3
+GW. Both are config constants.
 
 **Cutoff comparison:** paired on common intervals, 95% interval from a day-block bootstrap
 (whole delivery days resampled, 2,000 resamples, fixed seed) because errors within a day are
 correlated. "Materially better" requires at least 3% MAE improvement; the verdict says so when
 the interval includes zero.
 
-### 8.1 Curtailment hypothesis (time-boxed, product owner's instruction)
+### 8.1 Curtailment hypothesis (time-boxed)
 
 Hypothesis: WINDFOR forecasts available wind, FUELHH records metered output after curtailment,
 curtailment concentrates in high-wind periods, so the gap should scale with generation level.
 
-- **Bucketed on actual** (the brief's breakdown) the gap does not scale cleanly: bias +1.86 GW at
-  <6 GW (41% of actual), +1.14 GW at 6-10, +1.22 GW at 10-14, +2.40 GW at 14+. Level explains
-  under 3% of error variance (R2 0.028). But conditioning on the realised value mechanically
-  inflates low buckets, so this view understates any level effect.
-- **Bucketed on forecast** (what a trader knows at decision time) the gap does scale: +0.77 GW
-  below 6 GW, +0.73 at 6-10, +1.68 at 10-14, +2.51 at 14+ GW (primary cutoff). Slope of error
-  on forecast 0.19, R2 0.27 (0.35 at the 15:30 cutoff). Realised wind is about 0.81 x forecast
-  + 0.74 GW. FUELHH peaks at 17.8 GW while WINDFOR reaches 21.4 GW.
-- **Verdict: partly supported.** The level dependence at high forecasts is what curtailment would
-  produce and is the larger part of the bias. It does not explain the roughly 0.75 GW offset that
-  remains at low forecast levels, where curtailment is least likely; that residual is more
-  consistent with a scope or coverage difference between the datasets. Cause is not proven and
-  was not pursued further.
+- Bucketed on *actual* output the gap does not scale cleanly (bias +1.86 GW below 6 GW, +1.14 at 6-10,
+  +1.22 at 10-14, +2.40 at 14+; level explains 2.8% of error variance), but conditioning on the outcome
+  mechanically inflates low buckets.
+- Bucketed on *forecast* the gap scales: +0.77, +0.73, +1.68, +2.51 GW across the four buckets; slope
+  0.19 MW per MW of forecast, R2 0.27 (0.35 at 15:30).
+- **Revised after section 8.2:** the level dependence is explained mainly by embedded wind, which rises
+  with the wind (about 1.2 GW on the lowest-wind day, 4.9 GW on the highest). Curtailment of metered
+  output may contribute but was not separated; AGWS and FUELHH-plus-embedded agree closely at the top
+  end, so there is no evidence here that curtailment is the main driver.
+
+### 8.2 Scope validation: is the offset a bug? (answer: no, it is scope)
+
+Run once, from `scripts/scope_check.py`, against independent public sources: NESO Historic Demand Data
+2026 (`EMBEDDED_WIND_GENERATION`, capacity 6,417 MW) and Elexon AGWS (actual aggregated wind
+generation, onshore plus offshore). Delivery window 2 Jan to 1 Feb 2026.
+
+1. **Maxima.** FUELHH WIND max 17,805 MW; WINDFOR max 21,353 MW (20% higher; at short lead the
+   ratio is 1.20); AGWS max 22,569 MW; FUELHH plus embedded max 23,021 MW. WINDFOR's maximum sits well
+   above FUELHH's, which is the signature of a different fleet. Means (short-lead WINDFOR): FUELHH
+   11,284, WINDFOR 12,765, AGWS 13,449, FUELHH plus embedded 13,763 MW.
+2. **Shape and timing.** Short-lead WINDFOR is a near-proportional scale of FUELHH
+   (`forecast = 1.135 x actual - 39 MW`, correlation 0.957), and correlates better with AGWS (0.976)
+   than with FUELHH. Shifting the actual by +/- 1 to 4 hours worsens the match steadily, so there is no
+   timing bug. (A -1 h shift is marginally best, correlation 0.958 against 0.957: a weak hint that
+   WINDFOR labels hour-ending, flagged but not acted on.)
+3. **Orders of magnitude, two days.** High-wind day 27 Jan, daily mean: FUELHH 16,409 MW; AGWS 20,759;
+   NESO embedded 4,905; FUELHH plus embedded 21,313; WINDFOR (short lead) 19,690. Low-wind day 8 Jan:
+   FUELHH 4,528; AGWS 5,815; embedded 1,194; FUELHH plus embedded 5,722; WINDFOR 5,664 (within 1%).
+   FUELHH is the right order of magnitude and is about 22% below the full fleet on average.
+4. **Day-ahead error against different definitions of "actual wind"** (09:20 cutoff, 744 hours):
+
+| Actual wind defined as | MAE | RMSE | Bias | nMAE | Debiased MAE |
+|---|---|---|---|---|---|
+| FUELHH only (what the app uses) | 2,039 | 2,505 | +1,748 | 18.1% | 1,376 |
+| FUELHH + NESO embedded wind | 1,518 | 1,939 | -731 | 11.0% | 1,386 |
+| Elexon AGWS national wind | 1,330 | 1,723 | -418 | 9.9% | 1,284 |
+
+Conclusion: the +1.75 GW offset is scope. Against full-fleet outturn the forecast is slightly *low*, with
+nMAE 10 to 11%, in the usual range for GB day-ahead national wind. The app deliberately keeps FUELHH
+(brief: Elexon BMRS, evaluate the forecast as published) and says so on screen. The debiased MAE
+against FUELHH (1,376 MW) is therefore a measure of a dataset reconciliation plus true error; the
+full-fleet figures (1,330 to 1,518 MW) are the better estimate of true forecast error. The figures come
+from outside the app's stated source scope and are used for validation only.
 
 ## 9. Known data caveats
 

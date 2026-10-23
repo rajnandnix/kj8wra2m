@@ -35,7 +35,7 @@ function LevelCard({ cutoffKey }: { cutoffKey: string }) {
                   level explains {pct((d.trend.rSquared ?? 0) * 100, 0)} of the error variance.
                 </b>{" "}
                 {basis === "forecast"
-                  ? "Bucketing by forecast is what a trader can see at decision time, and it shows the bias growing with the forecast level: the pattern curtailment of wind at high output would produce, on top of a smaller offset that is present at every level."
+                  ? "Bucketing by forecast is what a trader can see at decision time, and it shows the bias growing with the forecast level. The most plausible driver is scope: the forecast covers embedded wind that the metered outturn excludes, and embedded output rises with the wind (about 1.2 GW on the lowest-wind day, 4.9 GW on the highest). Curtailment of metered output at high wind may add to it; the two are not separated here."
                   : "Bucketing by realised output makes low buckets look biased high even for a noisy, unbiased forecast, because the bucket is chosen by the outcome. It is shown because it is the conventional view; the forecast view is the decision-relevant one."}
               </p>
             )}

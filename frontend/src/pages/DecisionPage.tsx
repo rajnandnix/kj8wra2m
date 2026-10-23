@@ -42,7 +42,7 @@ export function DecisionPage({ cutoffKey }: { cutoffKey: string }) {
           {days.map((d) => (
             <option key={d} value={d}>
               {dayLong(d)}
-              {d === health.data?.defaultDeliveryDate ? "  (largest miss)" : ""}
+              {d === health.data?.largestMissDate ? "  (largest miss)" : ""}
             </option>
           ))}
         </select>
@@ -52,6 +52,16 @@ export function DecisionPage({ cutoffKey }: { cutoffKey: string }) {
       </div>
 
       {health.isError && <Async query={health}>{() => null}</Async>}
+
+      {health.data && day !== health.data.sensitivityExampleDate && (
+        <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>
+          Want the case for buying later?{" "}
+          <button className={s.linkBtn} onClick={() => setDay(health.data?.sensitivityExampleDate)}>
+            Jump to {dayLong(health.data.sensitivityExampleDate)}
+          </button>
+          , the day the 11:30 forecast revised the 07:30 and 09:30 ones sharply, so the 15:30 gate would have roughly halved the error.
+        </p>
+      )}
 
       <Async query={forecast} height={90}>
         {(d) => {

@@ -78,3 +78,40 @@ export const SignNote = () => (
     </p>
   </Card>
 );
+
+/** The lead finding: two measured figures with the systematic offset named. Deliberately not an
+ *  additive decomposition (MAE does not split into bias plus a remainder). */
+export function LeadFinding({ h, cutoffLabel }: { h: Headline; cutoffLabel: string }) {
+  if (h.maeMw == null || h.biasMw == null || h.debiasedMaeMw == null) return null;
+  const drop = ((h.maeMw - h.debiasedMaeMw) / h.maeMw) * 100;
+  return (
+    <section
+      aria-labelledby="lead-finding"
+      style={{ border: "2px solid var(--series-1)", borderRadius: 14, background: "var(--surface-1)", padding: "22px 26px", display: "flex", flexDirection: "column", gap: 12 }}
+    >
+      <div style={{ color: "var(--accent)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        The finding, {cutoffLabel}
+      </div>
+      <h2 id="lead-finding" style={{ fontSize: 22, lineHeight: 1.4, fontWeight: 500, margin: 0, maxWidth: "62ch" }}>
+        MAE <b>{mw(h.maeMw)}</b>, with the forecast running <b>{signedMw(h.biasMw)}</b> high on average. Remove that systematic
+        offset and MAE falls to <b>{mw(h.debiasedMaeMw)}</b>.
+      </h2>
+      <p style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>
+        Apply a standing correction and your typical miss drops by about a third ({pct(drop, 0)} lower).
+      </p>
+      <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: 13.5, lineHeight: 1.55, maxWidth: "100ch" }}>
+        These are two measured figures, not an additive split: MAE does not decompose into bias plus a remainder. The
+        correction here is estimated on the same month it is scored on, so it is an in-sample figure; one month cannot show
+        it would hold in other seasons.
+      </p>
+      <div style={{ background: "var(--surface-2)", borderRadius: 10, padding: "12px 16px", fontSize: 13.5, lineHeight: 1.55 }}>
+        <b>Where the offset comes from: scope, not forecasting skill.</b> The forecast (WINDFOR) covers wind that the metered
+        outturn series (FUELHH) leaves out, chiefly embedded, distribution-connected wind. Checked against independent
+        sources at the 09:20 cutoff: NESO&apos;s embedded-wind estimate averages 2,479 MW over the window, and against
+        full-fleet outturn the day-ahead MAE is about <b>1,330 to 1,520 MW (10 to 11% of mean output)</b> with the bias
+        shrinking to about −0.4 to −0.7 GW. So the correction is largely a reconciliation between two datasets: confirm
+        which series your position is actually measured against before applying it.
+      </div>
+    </section>
+  );
+}
