@@ -13,7 +13,7 @@ export function AccuracyPage({ cutoffKey }: { cutoffKey: string }) {
       <Async query={q} height={420}>
         {(d) => (
           <>
-            <LeadFinding h={d.headline} cutoffLabel={`${d.cutoff.localTime} ${d.cutoff.label}`} />
+            <LeadFinding h={d.headline} cutoffKey={d.cutoff.key} cutoffLabel={d.cutoff.localTime} />
             <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: 13.5 }}>
               {d.cutoff.label}, {d.cutoff.localTime} Europe/London on D-1. {d.cutoff.rule}
             </p>
@@ -46,12 +46,13 @@ export function AccuracyPage({ cutoffKey }: { cutoffKey: string }) {
               <ErrorHistogram data={d} />
             </Card>
             <Grid cols={2}>
-              <Card title="Standing offset versus forecast skill" sub="Removing the mean error separates a correctable bias from genuine misses.">
+              <Card title="Constant offset versus the rest of the error" sub="Supporting evidence for the finding above, measured against FUELHH.">
                 <p className={s.prose} style={{ marginTop: 0 }}>
-                  Headline MAE is <b>{mw(d.headline.maeMw)}</b>, but the forecast ran <b>{mw(d.headline.biasMw)}</b> high on
-                  average. Subtract that standing offset and MAE would be <b>{mw(d.headline.debiasedMaeMw)}</b> and RMSE{" "}
+                  Headline MAE is <b>{mw(d.headline.maeMw)}</b>, and the forecast ran <b>{mw(d.headline.biasMw)}</b> high on
+                  average. Subtract that constant offset and MAE would be <b>{mw(d.headline.debiasedMaeMw)}</b> and RMSE{" "}
                   <b>{mw(d.headline.debiasedRmseMw)}</b>. Headline figures stay uncorrected because this tool evaluates the
-                  forecast as published; the debiased line shows what a standing correction could be worth.
+                  forecast as published. The cross-check attributes most of the offset to the datasets covering different wind
+                  fleets, so this is not evidence that a standing correction would improve the forecast.
                 </p>
               </Card>
               <Card title="Worst single hour" sub="Clients remember the worst day.">

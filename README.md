@@ -5,36 +5,55 @@ megawatt the forecast gets wrong has to be covered later at higher cost. This ap
 actually available at each day-ahead gate closure (never a later one), measures how wrong it has been over January 2026
 decisions, and turns that error history into a band to size thermal cover around the forecast.
 
-## Live demo
+**Live demo: https://gb-wind-risk-x7q2.vercel.app** (API docs at `/api/docs`)
 
-**https://gb-wind-risk-x7q2.vercel.app** (React front end plus a Python function on Vercel; API docs at `/api/docs`).
+## Three findings
+
+1. **We checked whether the forecast was broken, and found the comparison was broken instead.** Against FUELHH (metered,
+   transmission-connected wind) the day-ahead error is about **2,039 MW, roughly 18%**. That is misleading: WINDFOR and FUELHH
+   count different wind fleets. Against a fleet-matched outturn (Elexon's national wind series) the same forecast is off by about
+   **1,330 MW, roughly 10%**. For a trading desk the point is practical: confirm which outturn series your position settles
+   against, because benchmarking against the wrong one would have you applying a 1.7 GW standing correction you do not need.
+2. **A procurement band sized to the forecast level.** For each hour, realised wind is expected between forecast minus P90 and
+   forecast minus P10 of the error for hours with a similar forecast. P90 thermal cover runs from about 2.2 GW (forecasts under
+   6 GW) to 4.7 GW (14 GW and above), with 78 to 80% in-sample coverage in every level bucket. It is in-sample on one month, and
+   it is measured against FUELHH, so it inherits the offset in finding 1.
+3. **Buying later helps modestly.** At the 15:30 gate MAE is 6.6% lower than at 09:20, but the 95% interval (−14.8% to +0.4%)
+   reaches zero, so one month supports a directional case only. The 09:50 gate makes no difference.
+
+![Accuracy view: the finding and the evidence](docs/screenshots/accuracy.png)
+
+## Data scope, and one deliberate exception
+
+The application honours the two-dataset scope: Elexon **FUELHH** (actual wind) and **WINDFOR** (forecast) only. During analysis
+the error looked implausibly high, so I went outside that scope for **one cross-check only**, to establish whether the forecast
+was wrong or the comparison was. The cross-check used two other sources, Elexon's AGWS dataset (national wind generation) and
+NESO's embedded-wind estimate. It lives in a standalone script, `scripts/scope_check.py`, not in the application, and it produced
+the main finding. The application does not query those sources; it displays the check's results as fixed text labelled with the
+cutoff they were computed at. Full evidence: [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md) section 8.2.
 
 ## Screenshots
 
-| Decision view | Accuracy view |
+| Decision view | Breakdown view |
 |---|---|
-| ![Decision view: forecast at the cutoff, outturn and the procurement band](docs/screenshots/decision.png) | ![Accuracy view: the lead finding and headline metrics](docs/screenshots/accuracy.png) |
+| ![Decision view: forecast at the cutoff, outturn and the procurement band](docs/screenshots/decision.png) | ![Breakdown view: error by hour and by generation level](docs/screenshots/breakdown.png) |
 
-![Breakdown view: error by hour and by generation level](docs/screenshots/breakdown.png)
+## Key numbers
 
-## Key findings
+All for the 31 delivery days 2 Jan to 1 Feb 2026 (744 hourly intervals, 100% coverage) against FUELHH. Error is forecast minus actual.
 
-All figures are for the 31 delivery days 2 Jan to 1 Feb 2026 (744 hourly intervals, 100% coverage) at the primary
-09:20 cutoff (EPEX SPOT GB 60 minute auction gate), measured against FUELHH metered wind. Error is forecast minus actual.
+| | 09:20 EPEX 60 (primary) | 09:50 N2EX | 15:30 EPEX 30 |
+|---|---|---|---|
+| WINDFOR vintage used (UTC) | 07:30 | 09:30 | 11:30 (12:25 on one day) |
+| MAE / RMSE | 2,039 / 2,505 MW | 2,013 / 2,506 MW | 1,904 / 2,361 MW |
+| Bias | +1,748 MW | +1,730 MW | +1,693 MW |
+| nMAE | 18.1% | 17.8% | 16.9% |
+| P10 / P50 / P90 of error | −549 / +1,592 / +4,098 MW | −489 / +1,560 / +4,144 MW | −381 / +1,596 / +3,847 MW |
 
-- **The lead finding.** MAE is **2,039 MW**, and the forecast ran **+1,748 MW high** on average. Remove that systematic
-  offset and MAE falls to **1,376 MW**. These are two measured figures, not an additive split. **A standing correction
-  would cut the typical miss by about a third** (an in-sample estimate from one month).
-- **The offset is scope, not a bug.** WINDFOR covers wind that FUELHH leaves out, chiefly embedded wind. Checked against
-  independent sources (NESO's embedded-wind estimate and Elexon's AGWS national wind), the day-ahead MAE against full-fleet
-  outturn is 1,330 to 1,518 MW (nMAE 10 to 11%) and the bias is slightly negative (about −0.4 to −0.7 GW).
-  Details: [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md) section 8.2.
-- **Later gate, modest gain.** At the 15:30 gate MAE is 6.6% lower (1,904 MW), but the 95% interval (−14.8% to +0.4%)
-  reaches zero, so one month supports a directional case only. The 09:50 gate is no different from 09:20.
-- **Procurement band.** For each hour, realised wind is expected between forecast minus P90 and forecast minus P10 of the
-  error for hours with a similar forecast level. P90 thermal cover is about 2.2 GW below 6 GW of forecast and 4.7 GW at 14 GW
-  and above. In-sample coverage is 78 to 80% in every level bucket (a single global band ranged 69 to 89%). This is
-  in-sample; one month cannot support out-of-sample validation.
+Same 09:20 forecast against different outturn series: FUELHH only MAE 2,039 MW (bias +1,748, nMAE 18.1%); FUELHH plus NESO
+embedded wind 1,518 MW (−731, 11.0%); Elexon AGWS 1,330 MW (−418, 9.9%). Removing the +1,748 MW offset lowers MAE against
+FUELHH to 1,376 MW, but that gain is the scope difference, not forecast skill: against the two fuller series the same step
+improves MAE by only roughly 3% to 9%.
 
 ## Architecture
 
@@ -84,17 +103,17 @@ on the request path. More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | `requirements.txt` | Runtime dependencies for the API (Docker image and Vercel) |
 | `data/raw/` | Cached raw Elexon responses (committed) |
 | `data/app.db` | SQLite snapshot built from `data/raw/` (committed) |
-| `docs/ASSUMPTIONS.md` | Every verified API fact, assumption and validation, with reasoning |
+| `docs/ASSUMPTIONS.md` | Every verified API fact, assumption, source and validation, with reasoning |
 | `docs/ARCHITECTURE.md` | Data flow and design notes |
-| `scripts/scope_check.py` | One-off validation of the dataset offset against independent sources (needs network) |
+| `scripts/scope_check.py` | Standalone cross-check of the dataset offset against independent sources (needs network; not part of the app) |
 
 ## Running it
 
 ### Docker
 
 > **Not verified.** The Dockerfiles and `docker-compose.yml` are provided, but the images were **not built or run** in the
-> environment this project was written in (no Docker available there). Treat `docker compose up --build` as untested
-> until you have run it.
+> environment this project was written in (Docker was unavailable; last checked 24 Oct 2026). Treat `docker compose up --build`
+> as untested until you have run it.
 
 ```
 docker compose up --build        # then open http://localhost:3000
@@ -132,8 +151,8 @@ Full reasoning is in [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md). The ones to kno
   `publishTime + 1 minute <= cutoff` on D-1. Nothing later is ever used, and if nothing earlier exists the hour is reported
   missing rather than falling back. The 1 minute lag is deliberate conservatism: a forecast stamped 15:30:00 is not on the
   desk of someone submitting into a 15:30:00 gate.
-- **Cutoffs are real gate closures**, in Europe/London time on D-1: 09:20 (EPEX 60 minute, primary), 09:50 (N2EX) and
-  15:30 (EPEX 30 minute). All metrics are computed at all three and compared in the UI.
+- **Cutoffs are real gate closures**, in Europe/London time on D-1: 09:20 (EPEX SPOT GB 60 minute auction, primary), 09:50
+  (Nord Pool N2EX) and 15:30 (EPEX SPOT GB 30 minute auction). All metrics are computed at all three and compared in the UI.
 - **Native resolution.** WINDFOR is hourly and FUELHH is half-hourly, so the two half-hours inside each forecast hour are
   averaged (mean of MW, never a sum) and the forecast is never interpolated.
 - **No MAPE**, because wind output approaches zero.
@@ -141,15 +160,17 @@ Full reasoning is in [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md). The ones to kno
 
 ## Known limitations
 
-- **Scope.** FUELHH is transmission-metered, BM-registered wind and excludes embedded wind, so against it the forecast
-  runs high. Measured against full-fleet outturn the forecast is slightly low. The app reports FUELHH-based figures
-  (evaluating the forecast as published) and states the offset on screen.
-- **One month.** The correction, the band and the cutoff comparison are all estimated and scored on January 2026. They are
-  in-sample, and one month cannot show they hold in other seasons.
+- **Scope.** FUELHH excludes embedded wind, so against it the forecast runs high; against fuller series it is slightly low.
+  The app reports FUELHH-based figures (evaluating the forecast as published) and states the offset on screen. The two fuller
+  series are the closest available match, not a perfect one, and WINDFOR's exact fleet definition was inferred from the numbers,
+  not from documentation.
+- **One month.** The band and the cutoff comparison are estimated and scored on January 2026. They are in-sample, and one month
+  cannot show they hold in other seasons. The procurement band inherits the FUELHH offset.
 - **Availability time.** `publishTime` is assumed to be when a forecast reaches the desk. The data cannot show real latency.
+- **Gate times** come from EPEX SPOT and Nord Pool documentation (sources in `docs/ASSUMPTIONS.md` section 4) and were not
+  re-checked for changes after 2024. The 15:30 conclusion is statistically weak on one month.
 - **Daylight saving.** January has no clock change, so the scope is unaffected, but the time handling should be audited
   before extending to March or October.
-- **Gate times** were supplied, not independently verified against exchange rules.
 - Docker images are untested (see above). There are no front-end automated tests.
 
 ## Testing

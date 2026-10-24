@@ -199,8 +199,24 @@ applies, the API is keyless, and a usable vintage exists on every delivery day.
 ## 4. Decision cutoff (no-lookahead rule)
 
 **Decision (product owner), replacing the round-number 09:30.** The cutoff is the gate closure of
-a real GB day-ahead auction, at wall-clock time on D-1 in Europe/London. The three times were
-supplied by the product owner and are **not independently verified against exchange rules**.
+a real GB day-ahead auction, at wall-clock time on D-1 in Europe/London. The three times are
+**verified against the exchanges' own documentation** (product owner's check, with sources below):
+
+- **09:20 UK time, EPEX SPOT GB 60 minute day-ahead auction** and **15:30 UK time, EPEX SPOT GB 30 minute
+  day-ahead auction.** Source: EPEX SPOT Trading brochure (the December 2024 edition lists the GB
+  60 minute auction at 09:20 and the 30 minute auction at 15:30), and EPEX SPOT's 2020 annual report
+  section "After Brexit: integration of a decoupled market" (the 60 minute auction moved from 11:00
+  to 09:20 for trading day 31 December 2020).
+- **09:50 UK time, Nord Pool N2EX day-ahead auction.** Source: Nord Pool support article "About the N2EX
+  day-ahead auction" ("Gate closure time is 09:50 GMT / 10:50 CET"), and Nord Pool's Q4 2020 announcement
+  of the GB auction changes for Brexit.
+
+What I could and could not check myself: I read the Nord Pool article directly. EPEX SPOT's PDF and annual
+report pages returned HTTP 403 to my fetch, so for EPEX I rely on the product owner's check plus search
+summaries of those documents, not on having opened them. One secondary source (S&P Global, a December
+2020 notice) gave a different N2EX time (09:40); the exchange's own documentation says 09:50 and is
+followed here. None of these documents was checked for changes after 2024. In January the UK is on GMT,
+so the UK times equal UTC on all 31 days.
 
 | Key | Time | Auction | Role | WINDFOR vintage selected |
 |---|---|---|---|---|
@@ -356,12 +372,29 @@ generation, onshore plus offshore). Delivery window 2 Jan to 1 Feb 2026.
 | FUELHH + NESO embedded wind | 1,518 | 1,939 | -731 | 11.0% | 1,386 |
 | Elexon AGWS national wind | 1,330 | 1,723 | -418 | 9.9% | 1,284 |
 
-Conclusion: the +1.75 GW offset is scope. Against full-fleet outturn the forecast is slightly *low*, with
-nMAE 10 to 11%, in the usual range for GB day-ahead national wind. The app deliberately keeps FUELHH
-(brief: Elexon BMRS, evaluate the forecast as published) and says so on screen. The debiased MAE
-against FUELHH (1,376 MW) is therefore a measure of a dataset reconciliation plus true error; the
-full-fleet figures (1,330 to 1,518 MW) are the better estimate of true forecast error. The figures come
-from outside the app's stated source scope and are used for validation only.
+Conclusion: the +1.75 GW offset is scope. Against fuller outturn series the forecast is slightly *low*, with
+nMAE 10 to 11%. The app deliberately keeps FUELHH (brief: evaluate the forecast as published) and says
+so on screen. The debiased MAE against FUELHH (1,376 MW) is therefore mostly a dataset reconciliation,
+not forecast skill: the same bias-removal step against the two fuller series improves MAE by only
+8.7% (1,518 to 1,386 MW) and 3.4% (1,330 to 1,284 MW). The fuller series are the closest available match,
+not a perfect one: WINDFOR's short-lead mean still sits about 0.7 to 1.0 GW below them. WINDFOR's exact
+fleet definition was not found in documentation; "WINDFOR covers embedded wind" is an inference from
+these numbers.
+
+**I did not find a published benchmark** for GB national day-ahead wind error, so there is no source for
+calling 10% of mean output "normal". NESO declined an FOI request on the question, and the closest published
+figures (ESO incentive targets for metered wind) use a different metric and fleet. The app therefore
+states 10% as a measured figure and does not call it typical.
+
+### 8.3 Scope boundary: a deliberate, disclosed exception
+
+The brief restricts the product to two datasets, Elexon FUELHH and WINDFOR. **The application honours
+that.** During analysis the error looked implausibly high, so I went outside that scope for **one
+cross-check only**, to establish whether the forecast or the comparison was wrong. The check used Elexon
+AGWS (another BMRS dataset, actual aggregated wind generation) and NESO's embedded-wind estimate (a
+different organisation's data). It lives in a standalone script, `scripts/scope_check.py`, not in the
+application, and it produced the main finding. The application never queries those sources: its Accuracy
+view shows the script's 09:20 results as fixed text, labelled as fixed to that cutoff.
 
 ## 9. Known data caveats
 

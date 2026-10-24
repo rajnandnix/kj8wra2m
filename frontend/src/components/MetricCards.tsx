@@ -1,6 +1,6 @@
 import type { Headline } from "../lib/api";
 import { dateTimeOf, mw, num, pct, signedMw } from "../lib/format";
-import { Card, Grid, Metric } from "./ui";
+import { Card, DataTable, Grid, Metric } from "./ui";
 
 export function MetricCards({ h }: { h: Headline }) {
   const excluded = h.nExpected - h.nValid;
@@ -30,7 +30,7 @@ export function MetricCards({ h }: { h: Headline }) {
               ? "Forecast ran high on average: systematic under-procurement."
               : "Forecast ran low on average: systematic over-procurement."
           }
-          secondary="A standing offset a correction could remove."
+          secondary="Mostly a scope difference between datasets (see the finding above)."
         />
         <Metric
           label="Normalised MAE (nMAE)"
@@ -79,39 +79,66 @@ export const SignNote = () => (
   </Card>
 );
 
-/** The lead finding: two measured figures with the systematic offset named. Deliberately not an
- *  additive decomposition (MAE does not split into bias plus a remainder). */
-export function LeadFinding({ h, cutoffLabel }: { h: Headline; cutoffLabel: string }) {
+/** Fixed results of the one-off scope cross-check (scripts/scope_check.py), computed at the 09:20
+ *  cutoff only. They are NOT recomputed when the cutoff selector changes, and the card says so. */
+const VALIDATION_0920 = [
+  { label: "FUELHH only (what this app measures against)", mae: 2039, bias: 1748, nmae: 18.1 },
+  { label: "FUELHH plus NESO embedded-wind estimate", mae: 1518, bias: -731, nmae: 11.0 },
+  { label: "Elexon AGWS national wind", mae: 1330, bias: -418, nmae: 9.9 },
+];
+
+/** The lead finding: the comparison was broken, not the forecast. */
+export function LeadFinding({ h, cutoffKey, cutoffLabel }: { h: Headline; cutoffKey: string; cutoffLabel: string }) {
   if (h.maeMw == null || h.biasMw == null || h.debiasedMaeMw == null) return null;
   const drop = ((h.maeMw - h.debiasedMaeMw) / h.maeMw) * 100;
+  const fixedToPrimary = cutoffKey === "epex60";
   return (
     <section
       aria-labelledby="lead-finding"
       style={{ border: "2px solid var(--series-1)", borderRadius: 14, background: "var(--surface-1)", padding: "22px 26px", display: "flex", flexDirection: "column", gap: 12 }}
     >
       <div style={{ color: "var(--accent)", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-        The finding, {cutoffLabel}
+        The finding
       </div>
-      <h2 id="lead-finding" style={{ fontSize: 22, lineHeight: 1.4, fontWeight: 500, margin: 0, maxWidth: "62ch" }}>
-        MAE <b>{mw(h.maeMw)}</b>, with the forecast running <b>{signedMw(h.biasMw)}</b> high on average. Remove that systematic
-        offset and MAE falls to <b>{mw(h.debiasedMaeMw)}</b>.
+      <h2 id="lead-finding" style={{ fontSize: 22, lineHeight: 1.4, fontWeight: 600, margin: 0, maxWidth: "70ch" }}>
+        We checked whether the forecast was broken, and found the comparison was broken instead.
       </h2>
-      <p style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>
-        Apply a standing correction and your typical miss drops by about a third ({pct(drop, 0)} lower).
+      <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, maxWidth: "90ch" }}>
+        Measured against FUELHH, day-ahead error at the {cutoffLabel} gate is about <b>{mw(h.maeMw)}</b>, roughly{" "}
+        <b>{pct(h.nmaePct, 0)}</b> of mean output. <b>That is misleading.</b> Most of the gap is that WINDFOR and FUELHH count
+        different wind fleets. Against a fleet-matched outturn, the same forecast at the 09:20 gate is off by about{" "}
+        <b>1,330 MW, roughly 10%</b>.
       </p>
-      <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: 13.5, lineHeight: 1.55, maxWidth: "100ch" }}>
-        These are two measured figures, not an additive split: MAE does not decompose into bias plus a remainder. The
-        correction here is estimated on the same month it is scored on, so it is an in-sample figure; one month cannot show
-        it would hold in other seasons.
+      <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, fontWeight: 600, maxWidth: "90ch" }}>
+        For the desk: confirm which outturn series your position settles against. Benchmarking against the wrong one would
+        have you applying a 1.7 GW standing correction you do not need.
       </p>
-      <div style={{ background: "var(--surface-2)", borderRadius: 10, padding: "12px 16px", fontSize: 13.5, lineHeight: 1.55 }}>
-        <b>Where the offset comes from: scope, not forecasting skill.</b> The forecast (WINDFOR) covers wind that the metered
-        outturn series (FUELHH) leaves out, chiefly embedded, distribution-connected wind. Checked against independent
-        sources at the 09:20 cutoff: NESO&apos;s embedded-wind estimate averages 2,479 MW over the window, and against
-        full-fleet outturn the day-ahead MAE is about <b>1,330 to 1,520 MW (10 to 11% of mean output)</b> with the bias
-        shrinking to about −0.4 to −0.7 GW. So the correction is largely a reconciliation between two datasets: confirm
-        which series your position is actually measured against before applying it.
+
+      <div style={{ background: "var(--surface-2)", borderRadius: 10, padding: "14px 16px", fontSize: 13.5, lineHeight: 1.55 }}>
+        <b>Evidence: the same 09:20 day-ahead forecast against three definitions of &ldquo;actual wind&rdquo;</b>{" "}
+        <span style={{ color: "var(--text-secondary)" }}>
+          (fixed results from a one-off cross-check at the 09:20 gate; they do not change with the cutoff selector)
+        </span>
+        <DataTable
+          head={["Outturn series", "MAE", "Bias", "nMAE"]}
+          rows={VALIDATION_0920.map((r) => [r.label, mw(r.mae), signedMw(r.bias), pct(r.nmae)])}
+        />
+        <p style={{ margin: "8px 0 0", color: "var(--text-secondary)" }}>
+          The forecast covers wind that FUELHH (transmission-metered) leaves out, chiefly embedded wind, which NESO estimates
+          at about 2.5 GW on average over the window. Against the two fuller series the bias is small and negative, not
+          +1.7 GW. These series are the closest available match, not a perfect one. They come from a standalone script
+          (<code>scripts/scope_check.py</code>), not from this application.
+        </p>
       </div>
+
+      <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: 13.5, lineHeight: 1.55, maxWidth: "100ch" }}>
+        <b style={{ color: "var(--text-primary)" }}>Supporting numbers, against FUELHH at the {cutoffLabel} gate:</b> the
+        forecast ran {signedMw(h.biasMw)} high on average; remove that offset and MAE falls from {mw(h.maeMw)} to{" "}
+        {mw(h.debiasedMaeMw)} ({pct(drop, 0)} lower). These are two measured figures, not an additive split. That gain is the
+        scope difference showing up, not forecasting skill: against the two fuller series the same step improves MAE by only
+        roughly 3% to 9% (09:20 results). It is also estimated on the month it is scored on.
+        {!fixedToPrimary && " The evidence table above is fixed to the 09:20 gate and does not follow the selector."}
+      </p>
     </section>
   );
 }
