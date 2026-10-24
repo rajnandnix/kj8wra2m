@@ -13,6 +13,7 @@
   --series-1: #2a78d6; /* forecast */
   --series-2: #eb6834; /* actual outturn */
   --series-3: #1baf7a;
+  --worse: #e34948;
   --band: rgba(42, 120, 214, 0.12);
   --accent: #184f95;
   --warn-bg: #fdf3dc;
@@ -34,6 +35,7 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
+    --worse: #e66767;
     --band: rgba(57, 135, 229, 0.18);
     --accent: #86b6ef;
     --warn-bg: #2f2710;
@@ -55,6 +57,7 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
+    --worse: #e66767;
     --band: rgba(57, 135, 229, 0.18);
     --accent: #86b6ef;
     --warn-bg: #2f2710;

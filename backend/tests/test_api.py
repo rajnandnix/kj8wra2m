@@ -110,3 +110,22 @@ def test_sensitivity_is_cached_and_stable():
     a = client.get("/api/sensitivity").json()
     b = client.get("/api/sensitivity").json()
     assert a == b
+
+
+def test_sensitivity_exposes_days_that_get_worse():
+    j = client.get("/api/sensitivity").json()
+    late = next(c for c in j["comparisons"] if c["alternative"] == "epex30")
+    assert late["daysImproved"] == 19 and late["daysWorse"] == 12
+    assert len(late["byDay"]) == 31
+    by = {d["deliveryDate"]: d for d in late["byDay"]}
+    assert by["2026-01-23"]["deltaMw"] > 400 and by["2026-01-11"]["deltaMw"] > 0  # got worse
+    assert by["2026-01-28"]["deltaMw"] < -2000  # the one big winner
+    assert late["bestDay"] == "2026-01-28"
+    assert -4.0 < late["maeDeltaPctWithoutBestDay"] < -2.0  # the gain mostly disappears
+    assert "not reliable" in late["verdict"] and "worse on 12" in late["verdict"]
+
+
+def test_accuracy_by_day_counts_large_misses():
+    j = client.get("/api/accuracy").json()
+    days = {d["deliveryDate"]: d for d in j["byDay"]}
+    assert days["2026-01-28"]["nLargeMisses"] == 24 and days["2026-01-12"]["nLargeMisses"] == 17

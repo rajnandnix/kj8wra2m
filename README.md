@@ -17,9 +17,11 @@ decisions, and turns that error history into a band to size thermal cover around
 2. **A procurement band sized to the forecast level.** For each hour, realised wind is expected between forecast minus P90 and
    forecast minus P10 of the error for hours with a similar forecast. P90 thermal cover runs from about 2.2 GW (forecasts under
    6 GW) to 4.7 GW (14 GW and above), with 78 to 80% in-sample coverage in every level bucket. It is in-sample on one month, and
-   it is measured against FUELHH, so it inherits the offset in finding 1.
-3. **Buying later helps modestly.** At the 15:30 gate MAE is 6.6% lower than at 09:20, but the 95% interval (−14.8% to +0.4%)
-   reaches zero, so one month supports a directional case only. The 09:50 gate makes no difference.
+   it is measured against FUELHH, so it inherits the offset in finding 1: if your position settles against a fuller wind series, the
+   cover shown is conservative by roughly 2.2 to 2.5 GW on average. The band panel says so on screen.
+3. **Buying later is a directional case, not a reliable one.** At the 15:30 gate MAE is 6.6% lower on average than at 09:20,
+   but it is better on 19 days and **worse on 12** (for example 23 Jan: 1,515 to 1,969 MW). One day, 28 Jan, carries much of the
+   gain: without it the change is about 3%. The 95% interval (−14.8% to +0.4%) reaches zero. The 09:50 gate makes no difference.
 
 ![Accuracy view: the finding and the evidence](docs/screenshots/accuracy.png)
 
@@ -49,6 +51,9 @@ All for the 31 delivery days 2 Jan to 1 Feb 2026 (744 hourly intervals, 100% cov
 | Bias | +1,748 MW | +1,730 MW | +1,693 MW |
 | nMAE | 18.1% | 17.8% | 16.9% |
 | P10 / P50 / P90 of error | −549 / +1,592 / +4,098 MW | −489 / +1,560 / +4,144 MW | −381 / +1,596 / +3,847 MW |
+
+15:30 against 09:20, day by day: better on 19 days, worse on 12 (largest deteriorations 23 Jan +454 MW, 30 Jan +288 MW,
+3 Jan +279 MW); 28 Jan alone improves by 2,383 MW. The Accuracy view charts every day.
 
 Same 09:20 forecast against different outturn series: FUELHH only MAE 2,039 MW (bias +1,748, nMAE 18.1%); FUELHH plus NESO
 embedded wind 1,518 MW (−731, 11.0%); Elexon AGWS 1,330 MW (−418, 9.9%). Removing the +1,748 MW offset lowers MAE against
@@ -111,9 +116,10 @@ on the request path. More in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### Docker
 
-> **Not verified.** The Dockerfiles and `docker-compose.yml` are provided, but the images were **not built or run** in the
-> environment this project was written in (Docker was unavailable; last checked 24 Oct 2026). Treat `docker compose up --build`
-> as untested until you have run it.
+> **Not verified.** The Dockerfiles and `docker-compose.yml` are provided, but the images were **not built or run**. Docker Desktop
+> was installed on the authoring machine on 24 Oct 2026, but its engine could not start because hardware virtualisation was
+> disabled in that machine's firmware. Only `docker compose config` was run, which confirms the compose file parses and nothing
+> more. Treat `docker compose up --build` as untested until you have run it.
 
 ```
 docker compose up --build        # then open http://localhost:3000
@@ -165,7 +171,8 @@ Full reasoning is in [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md). The ones to kno
   series are the closest available match, not a perfect one, and WINDFOR's exact fleet definition was inferred from the numbers,
   not from documentation.
 - **One month.** The band and the cutoff comparison are estimated and scored on January 2026. They are in-sample, and one month
-  cannot show they hold in other seasons. The procurement band inherits the FUELHH offset.
+  cannot show they hold in other seasons. The procurement band inherits the FUELHH offset (conservative by roughly 2.2 to 2.5 GW
+  against a fuller series). The later-gate gain is mixed by day and mostly one day.
 - **Availability time.** `publishTime` is assumed to be when a forecast reaches the desk. The data cannot show real latency.
 - **Gate times** come from EPEX SPOT and Nord Pool documentation (sources in `docs/ASSUMPTIONS.md` section 4) and were not
   re-checked for changes after 2024. The 15:30 conclusion is statistically weak on one month.

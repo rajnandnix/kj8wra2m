@@ -1,5 +1,5 @@
-import type { Headline } from "../lib/api";
-import { dateTimeOf, mw, num, pct, signedMw } from "../lib/format";
+import type { AccuracyResponse, Headline } from "../lib/api";
+import { dateTimeOf, dayLong, mw, num, pct, signedMw } from "../lib/format";
 import { Card, DataTable, Grid, Metric } from "./ui";
 
 export function MetricCards({ h }: { h: Headline }) {
@@ -140,5 +140,26 @@ export function LeadFinding({ h, cutoffKey, cutoffLabel }: { h: Headline; cutoff
         {!fixedToPrimary && " The evidence table above is fixed to the 09:20 gate and does not follow the selector."}
       </p>
     </section>
+  );
+}
+
+/** Explains why the worst day by MAE and the day with the worst single hours can differ. Renders
+ *  only when they actually differ, so it never states an inconsistency that is not there. */
+export function WorstDayNote({ d }: { d: AccuracyResponse }) {
+  const worst = d.worstDay;
+  if (!worst || d.worstIntervals.length === 0) return null;
+  const counts = new Map<string, number>();
+  for (const w of d.worstIntervals) counts.set(w.time.slice(0, 10), (counts.get(w.time.slice(0, 10)) ?? 0) + 1);
+  const [topDay, k] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+  if (topDay === worst.deliveryDate) return null;
+  const top = d.byDay.find((r) => r.deliveryDate === topDay);
+  const biggest = Math.max(...d.worstIntervals.filter((w) => w.time.startsWith(topDay)).map((w) => w.absErrorMw));
+  return (
+    <p style={{ margin: "10px 0 0", fontSize: 13.5, lineHeight: 1.55, color: "var(--text-secondary)" }}>
+      <b style={{ color: "var(--text-primary)" }}>Why these differ.</b> {dayLong(topDay)} had the largest individual misses ({k} of
+      the {d.worstIntervals.length} worst hours, up to {mw(biggest)}); {dayLong(worst.deliveryDate)} was bad across more hours: it
+      missed by {mw(d.largeMissMw)} or more in {worst.nLargeMisses} of {worst.nValid} hours, against {top?.nLargeMisses ?? 0} on{" "}
+      {dayLong(topDay)}, so it has the highest daily MAE ({mw(worst.maeMw)}).
+    </p>
   );
 }

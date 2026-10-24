@@ -170,6 +170,7 @@ class DayRow(Model):
     bias_mw: float | None
     mean_actual_mw: float | None
     max_abs_error_mw: float | None
+    n_large_misses: int
 
 
 class HistogramBin(Model):
@@ -197,6 +198,7 @@ class AccuracyResponse(Model):
     errors: list[ErrorPoint]
     worst_day: DayRow | None
     worst_intervals: list[WorstInterval]
+    large_miss_mw: float
     error_definition: str
 
 
@@ -247,6 +249,17 @@ class CutoffResult(Model):
     vintage_publish_times: list[str]
 
 
+class DayDelta(Model):
+    """One delivery day under the baseline and an alternative cutoff. delta is alternative minus
+    baseline, so a positive delta means that day got worse at the alternative cutoff."""
+
+    delivery_date: date
+    n: int
+    mae_baseline_mw: float
+    mae_alternative_mw: float
+    delta_mw: float
+
+
 class CutoffComparison(Model):
     """Alternative cutoff against the baseline, on intervals valid under both. Delta is
     alternative minus baseline, so a negative delta means the alternative is more accurate."""
@@ -267,6 +280,12 @@ class CutoffComparison(Model):
     share_intervals_improved_pct: float
     share_days_improved_pct: float
     ci_includes_zero: bool
+    days_improved: int
+    days_worse: int
+    days_unchanged: int
+    best_day: date | None
+    mae_delta_pct_without_best_day: float | None
+    by_day: list[DayDelta]
     verdict: str
 
 

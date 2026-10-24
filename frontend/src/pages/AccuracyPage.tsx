@@ -1,5 +1,5 @@
 import { ErrorHistogram, ErrorSeriesChart } from "../components/charts/AccuracyCharts";
-import { LeadFinding, MetricCards, SignNote } from "../components/MetricCards";
+import { LeadFinding, MetricCards, SignNote, WorstDayNote } from "../components/MetricCards";
 import { SensitivityPanel } from "../components/SensitivityPanel";
 import { Async, Card, DataTable, Details, Grid } from "../components/ui";
 import { useAccuracy } from "../hooks/useApi";
@@ -55,7 +55,7 @@ export function AccuracyPage({ cutoffKey }: { cutoffKey: string }) {
                   fleets, so this is not evidence that a standing correction would improve the forecast.
                 </p>
               </Card>
-              <Card title="Worst single hour" sub="Clients remember the worst day.">
+              <Card title="Worst day and worst hours" sub="Clients remember the worst day.">
                 <p className={s.prose} style={{ marginTop: 0 }}>
                   {d.worstDay ? (
                     <>
@@ -67,6 +67,7 @@ export function AccuracyPage({ cutoffKey }: { cutoffKey: string }) {
                     "No scored days."
                   )}
                 </p>
+                <WorstDayNote d={d} />
               </Card>
             </Grid>
           </>

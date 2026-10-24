@@ -91,3 +91,14 @@
   .figures { grid-template-columns: minmax(0, 1fr); }
   .headline { font-size: 17px; }
 }
+
+.scopeLine {
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 4px solid var(--worse);
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.45;
+}

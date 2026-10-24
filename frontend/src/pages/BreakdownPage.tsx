@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { HourChart, LevelChart } from "../components/charts/BreakdownCharts";
-import { SignNote } from "../components/MetricCards";
+import { SignNote, WorstDayNote } from "../components/MetricCards";
 import { Async, Card, DataTable, Details } from "../components/ui";
 import { useAccuracy, useHourBreakdown, useLevelBreakdown } from "../hooks/useApi";
 import { dateTimeOf, mw, num, pct, signedMw } from "../lib/format";
@@ -96,6 +96,7 @@ export function BreakdownPage({ cutoffKey }: { cutoffKey: string }) {
       <Card title="Ten worst intervals" sub="Largest absolute forecast errors in the window, with the forecast vintage that was in hand.">
         <Async query={acc} height={300}>
           {(d) => (
+            <>
             <DataTable
               head={["Hour starting (UTC)", "Forecast", "Actual", "Error", "Forecast published (UTC)"]}
               rows={d.worstIntervals.map((w) => [
@@ -106,6 +107,8 @@ export function BreakdownPage({ cutoffKey }: { cutoffKey: string }) {
                 dateTimeOf(w.publishTime),
               ])}
             />
+            <WorstDayNote d={d} />
+            </>
           )}
         </Async>
       </Card>

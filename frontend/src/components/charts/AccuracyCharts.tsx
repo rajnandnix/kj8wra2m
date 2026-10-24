@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ComposedChart,
   LabelList,
   Line,
@@ -15,7 +16,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { AccuracyResponse, Headline } from "../../lib/api";
+import type { AccuracyResponse, DayDelta, Headline } from "../../lib/api";
 import { dateTimeOf, dayShort, kTick, mw, num, signedMw } from "../../lib/format";
 import { Legend } from "../ui";
 import { AXIS_LINE, ChartFrame, GRID, SERIES_1, TICK, TooltipBox, xLabel, yAxisProps } from "./common";
@@ -237,3 +238,58 @@ export function CutoffMaeChart({ rows }: { rows: { name: string; mae: number }[]
   );
 }
 
+
+/** Day-by-day change in MAE at an alternative cutoff. Days that get worse are drawn in a
+ *  different colour so they cannot be averaged away. */
+export function DayDeltaChart({ days, label }: { days: DayDelta[]; label: string }) {
+  return (
+    <>
+      <ChartFrame label={`Change in daily MAE in MW for each delivery day at the ${label} cutoff against 09:20`}>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={days} margin={{ top: 12, right: 16, bottom: 22, left: 4 }}>
+            <CartesianGrid {...GRID} />
+            <XAxis
+              dataKey="deliveryDate"
+              tick={TICK}
+              axisLine={AXIS_LINE}
+              tickLine={false}
+              interval={2}
+              tickFormatter={(d: string) => dayShort(`${d}T00:00:00Z`)}
+              label={xLabel("Delivery day")}
+            />
+            <YAxis {...yAxisProps("Change in daily MAE (MW)")} />
+            <ReferenceLine y={0} stroke="var(--text-muted)" />
+            <Tooltip
+              cursor={{ fill: "var(--surface-2)" }}
+              content={({ payload }) => {
+                if (!payload?.length) return null;
+                const r = payload[0].payload as DayDelta;
+                return (
+                  <TooltipBox
+                    title={dayShort(`${r.deliveryDate}T00:00:00Z`)}
+                    rows={[
+                      { label: "MAE at 09:20", value: mw(r.maeBaselineMw) },
+                      { label: `MAE at ${label}`, value: mw(r.maeAlternativeMw) },
+                      { label: r.deltaMw > 0 ? "Worse by" : "Better by", value: mw(Math.abs(r.deltaMw)), color: r.deltaMw > 0 ? "var(--worse)" : SERIES_1 },
+                    ]}
+                  />
+                );
+              }}
+            />
+            <Bar dataKey="deltaMw" barSize={12} radius={[3, 3, 3, 3]} isAnimationActive={false}>
+              {days.map((d) => (
+                <Cell key={d.deliveryDate} fill={d.deltaMw > 0 ? "var(--worse)" : SERIES_1} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartFrame>
+      <Legend
+        items={[
+          { label: "Day better at the later gate (MAE falls)", color: SERIES_1, kind: "box" },
+          { label: "Day worse at the later gate (MAE rises)", color: "var(--worse)", kind: "box" },
+        ]}
+      />
+    </>
+  );
+}

@@ -55,11 +55,12 @@ export function DecisionPage({ cutoffKey }: { cutoffKey: string }) {
 
       {health.data && day !== health.data.sensitivityExampleDate && (
         <p style={{ margin: 0, fontSize: 13.5, color: "var(--text-secondary)" }}>
-          Want the case for buying later?{" "}
+          Want to see the best case for buying later?{" "}
           <button className={s.linkBtn} onClick={() => setDay(health.data?.sensitivityExampleDate)}>
             Jump to {dayLong(health.data.sensitivityExampleDate)}
           </button>
-          , the day the 11:30 forecast revised the 07:30 and 09:30 ones sharply, so the 15:30 gate would have roughly halved the error.
+          , the month&apos;s biggest improvement (the 11:30 forecast revised the earlier ones down sharply). It is not typical: the
+          15:30 gate was worse on 12 other days, as the Accuracy view shows.
         </p>
       )}
 

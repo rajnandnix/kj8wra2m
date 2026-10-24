@@ -269,3 +269,54 @@ def test_p90_cover_is_floored_at_zero_per_hour():
     q.loc[q.bucket == "< 1 GW", "p90_mw"] = -30.0
     b = metrics.apply_conditional_band(pd.Series([500.0]), q, edges=EDGES)
     assert b["cover_p90_mw"].iloc[0] == 0.0
+
+
+# --- per-day comparison of two cutoffs, and large-miss counts --------------------------------
+
+
+def two_day(a_scale: float, b_scale: float, day2_b_scale: float):
+    """Same hand fixture on two delivery days. Cutoff B halves day 1 errors and scales day 2."""
+    d1, d2 = frame(), frame()
+    shift = pd.Timedelta(days=1)
+    d2["target_time"] = d2["target_time"] + shift
+    d2["delivery_date"] = d2["target_time"].dt.date
+    a = pd.concat([d1, d2], ignore_index=True)
+    b = a.copy()
+    day1 = b["delivery_date"] == d1["delivery_date"].iloc[0]
+    b.loc[day1, "error"] = b.loc[day1, "error"] * b_scale
+    b.loc[~day1, "error"] = b.loc[~day1, "error"] * day2_b_scale
+    b["abs_error"] = b["error"].abs()
+    a["error"] = a["error"] * a_scale
+    a["abs_error"] = a["error"].abs()
+    return a, b
+
+
+def test_day_comparison_reports_days_that_get_worse_not_just_the_average():
+    a, b = two_day(1.0, 0.5, 1.5)  # day 1 halves (better), day 2 grows 50% (worse)
+    c = metrics.day_comparison(a, b)
+    days = {r["delivery_date"]: r for r in c["by_day"]}
+    d1, d2 = sorted(days)
+    assert days[d1]["delta_mw"] == pytest.approx(-50.0) and days[d2]["delta_mw"] == pytest.approx(
+        50.0
+    )
+    assert days[d1]["mae_baseline_mw"] == pytest.approx(100.0)
+    assert days[d2]["mae_alternative_mw"] == pytest.approx(150.0)
+    assert (c["days_improved"], c["days_worse"], c["days_unchanged"]) == (1, 1, 0)
+    # the pooled average hides it: (-50 + 50) / 2 = 0
+    assert metrics.compare_cutoffs(a, b)["mae_delta_mw"] == pytest.approx(0.0)
+
+
+def test_gain_without_the_single_best_day():
+    a, b = two_day(1.0, 0.5, 0.9)  # day 1: 100 -> 50 (-50), day 2: 100 -> 90 (-10)
+    c = metrics.day_comparison(a, b)
+    # pooled: (-50 - 10) / 2 = -30 MW on a baseline MAE of 100 (-30%)
+    assert metrics.compare_cutoffs(a, b)["mae_delta_pct"] == pytest.approx(-30.0)
+    # drop the best day (day 1): only day 2 remains, -10 on 100 = -10%
+    assert c["mae_delta_pct_without_best_day"] == pytest.approx(-10.0)
+    assert c["best_day"] == sorted(r["delivery_date"] for r in c["by_day"])[0]
+
+
+def test_by_day_counts_large_misses():
+    d = metrics.by_day(frame(), large_mw=150.0)
+    assert d.iloc[0]["n_large_misses"] == 2  # |error| 200 and 150
+    assert metrics.by_day(frame()).iloc[0]["n_large_misses"] == 0  # default threshold is 4,000 MW

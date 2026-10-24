@@ -77,6 +77,7 @@ PUBLICATION_LAG = timedelta(minutes=1)
 DEFAULT_DELIVERY_DATE = date(2026, 1, 9)
 SENSITIVITY_EXAMPLE_DATE = date(2026, 1, 28)
 
+LARGE_MISS_MW = 4000.0  # an hour counts as a large miss at or above this absolute error
 INTERVAL_HOURS = 1.0  # evaluation resolution: WINDFOR is hourly
 PERCENTILES = (10, 50, 90)
 # Generation-level buckets on actual MW. The brief's 0-2-4 GW example is far below the

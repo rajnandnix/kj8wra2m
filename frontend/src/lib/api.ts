@@ -128,6 +128,7 @@ export interface DayRow {
   biasMw: number | null;
   meanActualMw: number | null;
   maxAbsErrorMw: number | null;
+  nLargeMisses: number;
 }
 
 export interface AccuracyResponse {
@@ -147,6 +148,7 @@ export interface AccuracyResponse {
     absErrorMw: number;
     publishTime: string;
   }[];
+  largeMissMw: number;
   errorDefinition: string;
 }
 
@@ -188,6 +190,14 @@ export interface Breakdown<R> {
   trend: LevelTrend | null;
 }
 
+export interface DayDelta {
+  deliveryDate: string;
+  n: number;
+  maeBaselineMw: number;
+  maeAlternativeMw: number;
+  deltaMw: number;
+}
+
 export interface CutoffComparison {
   baseline: string;
   alternative: string;
@@ -205,6 +215,12 @@ export interface CutoffComparison {
   shareIntervalsImprovedPct: number;
   shareDaysImprovedPct: number;
   ciIncludesZero: boolean;
+  daysImproved: number;
+  daysWorse: number;
+  daysUnchanged: number;
+  bestDay: string | null;
+  maeDeltaPctWithoutBestDay: number | null;
+  byDay: DayDelta[];
   verdict: string;
 }
 

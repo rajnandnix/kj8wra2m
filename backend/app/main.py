@@ -342,6 +342,7 @@ def accuracy(
             )
             for r in metrics.worst_intervals(t, 10).itertuples()
         ],
+        large_miss_mw=config.LARGE_MISS_MW,
         error_definition=ERROR_DEFINITION,
     )
 
@@ -378,19 +379,30 @@ def breakdown(
     )
 
 
-def _verdict(cmp: dict) -> tuple[bool, str]:
+def _verdict(cmp: dict, days: dict) -> tuple[bool, str]:
+    """Plain-language verdict. A pooled gain is never reported without the day-level split."""
     lo, hi = cmp["mae_delta_ci95_pct"]
     includes_zero = lo <= 0 <= hi
     pct = cmp["mae_delta_pct"]
+    split = f"better on {days['days_improved']} days, worse on {days['days_worse']}" + (
+        f", unchanged on {days['days_unchanged']}" if days["days_unchanged"] else ""
+    )
     if abs(pct) < 3:
-        return includes_zero, "No material difference in accuracy."
+        return includes_zero, f"No material difference in accuracy ({split})."
     direction = "better" if pct < 0 else "worse"
+    wo = days["mae_delta_pct_without_best_day"]
+    without = (
+        f" Without the single most-improved day the change is {wo:+.1f}%." if wo is not None else ""
+    )
     if includes_zero:
         return True, (
-            f"Directionally {direction} by {abs(pct):.1f}% MAE, but the 95% interval includes "
-            f"zero: one month of data cannot confirm it."
+            f"Directional, not reliable: {abs(pct):.1f}% {direction} on average, but {split}, "
+            f"and the 95% interval includes zero.{without}"
         )
-    return False, f"Materially {direction}: {abs(pct):.1f}% MAE, 95% interval excludes zero."
+    return False, (
+        f"Materially {direction}: {abs(pct):.1f}% MAE ({split}); "
+        f"the 95% interval excludes zero.{without}"
+    )
 
 
 @app.get("/api/sensitivity", response_model=schemas.SensitivityResponse, responses=ERRORS)
@@ -421,7 +433,8 @@ def _sensitivity(lo: date, hi: date) -> schemas.SensitivityResponse:
         if k == config.PRIMARY_CUTOFF:
             continue
         cmp = metrics.compare_cutoffs(wins[config.PRIMARY_CUTOFF], wins[k])
-        includes_zero, verdict = _verdict(cmp)
+        days = metrics.day_comparison(wins[config.PRIMARY_CUTOFF], wins[k])
+        includes_zero, verdict = _verdict(cmp, days)
         comparisons.append(
             schemas.CutoffComparison(
                 baseline=config.PRIMARY_CUTOFF,
@@ -440,6 +453,12 @@ def _sensitivity(lo: date, hi: date) -> schemas.SensitivityResponse:
                 share_intervals_improved_pct=cmp["share_intervals_improved_pct"],
                 share_days_improved_pct=cmp["share_days_improved_pct"],
                 ci_includes_zero=includes_zero,
+                days_improved=days["days_improved"],
+                days_worse=days["days_worse"],
+                days_unchanged=days["days_unchanged"],
+                best_day=days["best_day"],
+                mae_delta_pct_without_best_day=days["mae_delta_pct_without_best_day"],
+                by_day=[schemas.DayDelta(**r) for r in days["by_day"]],
                 verdict=verdict,
             )
         )

@@ -37,6 +37,11 @@ export function ProcurementPanel({ data }: { data: ForecastResponse }) {
         cover for averages <b>{mw(b.coverP90Mw)}</b>.
       </p>
 
+      <p className={s.scopeLine}>
+        <b>Sized against metered (FUELHH) outturn only.</b> If your position settles against a fuller wind series, the cover
+        shown is conservative by roughly the scope offset, about 2.2 to 2.5 GW on average.
+      </p>
+
       <div className={s.figures}>
         <div className={s.figure}>
           <span className={s.figureLabel}>Day-average forecast</span>

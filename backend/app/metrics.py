@@ -135,7 +135,7 @@ def by_level(
     return g
 
 
-def by_day(df: pd.DataFrame) -> pd.DataFrame:
+def by_day(df: pd.DataFrame, large_mw: float = config.LARGE_MISS_MW) -> pd.DataFrame:
     """Error per delivery day. Days with no valid pair are kept (n_valid 0)."""
     rows = []
     for day, g in df.groupby("delivery_date", sort=True):
@@ -151,6 +151,7 @@ def by_day(df: pd.DataFrame) -> pd.DataFrame:
                 "bias_mw": _f(e.mean()) if len(v) else None,
                 "mean_actual_mw": _f(v["actual_mw"].mean()) if len(v) else None,
                 "max_abs_error_mw": _f(np.abs(e).max()) if len(v) else None,
+                "n_large_misses": int((np.abs(e) >= large_mw).sum()),
             }
         )
     return pd.DataFrame(rows)
@@ -374,3 +375,46 @@ def day_band(
         "cover_p90_mwh": _f(b["cover_p90_mw"].sum() * hours_each),
         "hours": float(n * hours_each),
     }  # fmt: skip
+
+
+def day_comparison(a: pd.DataFrame, b: pd.DataFrame) -> dict:
+    """Per-day MAE of cutoff a (baseline) and cutoff b (alternative) on hours valid under both.
+
+    An average gain can hide days that get worse, so every day is reported with its change
+    (delta = b minus a, negative means b is better), plus counts of days better, worse and
+    unchanged, and the pooled MAE change with the single best day removed.
+    """
+    m = _valid(a)[["target_time", "delivery_date", "abs_error"]].merge(
+        _valid(b)[["target_time", "abs_error"]], on="target_time", suffixes=("_a", "_b")
+    )
+    g = m.groupby("delivery_date").agg(
+        n=("abs_error_a", "size"), mae_a=("abs_error_a", "mean"), mae_b=("abs_error_b", "mean")
+    )
+    g["delta"] = g["mae_b"] - g["mae_a"]
+    rows = [
+        {
+            "delivery_date": day,
+            "n": int(r.n),
+            "mae_baseline_mw": float(r.mae_a),
+            "mae_alternative_mw": float(r.mae_b),
+            "delta_mw": float(r.delta),
+        }
+        for day, r in g.iterrows()
+    ]
+    eps = 0.5  # MW; smaller changes count as unchanged
+    out = {
+        "by_day": rows,
+        "days_improved": int((g["delta"] < -eps).sum()),
+        "days_worse": int((g["delta"] > eps).sum()),
+        "days_unchanged": int((g["delta"].abs() <= eps).sum()),
+        "best_day": None,
+        "mae_delta_pct_without_best_day": None,
+    }
+    if len(g) > 1:
+        best = (g["delta"] * g["n"]).idxmin()  # largest total-error reduction
+        rest = g.drop(index=best)
+        base = (rest["mae_a"] * rest["n"]).sum() / rest["n"].sum()
+        alt = (rest["mae_b"] * rest["n"]).sum() / rest["n"].sum()
+        out["best_day"] = best
+        out["mae_delta_pct_without_best_day"] = float((alt - base) / base * 100.0)
+    return out

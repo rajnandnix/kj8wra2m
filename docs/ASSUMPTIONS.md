@@ -396,6 +396,26 @@ different organisation's data). It lives in a standalone script, `scripts/scope_
 application, and it produced the main finding. The application never queries those sources: its Accuracy
 view shows the script's 09:20 results as fixed text, labelled as fixed to that cutoff.
 
+### 8.4 Day-level view of the later cutoffs, and worst day versus worst hours
+
+**The pooled gain hides days moving in both directions.** 15:30 against 09:20 (paired on the same hours): MAE is 6.6% lower
+on average, but **better on 19 of 31 days and worse on 12**. Largest deteriorations: 23 Jan 1,515 to 1,969 MW (+454),
+30 Jan 1,372 to 1,659 (+288), 3 Jan 2,102 to 2,381 (+279), 21 Jan 3,658 to 3,879 (+221), 2 Jan 3,110 to 3,292 (+182),
+11 Jan 4,802 to 4,945 (+143). The gain leans on one day: 28 Jan improves by 2,383 MW (5,375 to 2,991), which is
+37% of all the improvement; **without 28 Jan the pooled change is -3.1%**. 09:50 against 09:20: better on 16 days, worse on
+12, unchanged on 3, with no material pooled difference. The API (`/api/sensitivity`) returns every day's change, the day counts
+and the without-best-day figure, and the verdict text is generated from them ("Directional, not reliable"). The UI charts the
+per-day change with worse days in a different colour.
+
+**Worst day versus worst hours (09:20).** The worst delivery day by MAE is 28 Jan (5,375 MW), but 7 of the 10 worst single hours
+are on 12 Jan (up to 6,870 MW). They are consistent: 12 Jan had the largest individual misses, while 28 Jan was bad across more
+hours, with 24 of 24 hours missing by 4,000 MW or more (`config.LARGE_MISS_MW`) against 17 of 24 on 12 Jan. The UI shows a note
+explaining this wherever both appear, computed from the data and shown only when the two days differ.
+
+**Procurement band scope line.** The band is sized against FUELHH errors. Against a fuller wind series the error falls by about the
+embedded wind the metered series excludes (mean shift 2.2 GW against AGWS, 2.5 GW against FUELHH plus embedded), so the cover
+shown is conservative by roughly that much. The panel states this on screen, not in a footnote.
+
 ## 9. Known data caveats
 
 - FUELHH covers transmission-metered, BM-registered generation. Embedded
